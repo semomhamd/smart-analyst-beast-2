@@ -6,12 +6,12 @@ from datetime import datetime
 import io
 import base64
 
-st.set_page_config(page_title="Data Beast", layout="wide", page_icon="🦁")
+st.set_page_config(page_title="smart analyst Beast", layout="wide", page_icon="🦁")
 
 if 'df' not in st.session_state:
     st.session_state.df = None
 
-SIGNATURE = "🔥 MIA8444 | Data Beast Pro © 2024"
+SIGNATURE = "🔥 MIA8444 | smart analyst Beast Pro © 2024"
 
 with st.sidebar:
     try:
