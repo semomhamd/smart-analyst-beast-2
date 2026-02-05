@@ -15,7 +15,7 @@ SIGNATURE = "🔥 MIA8444 | Data Beast Pro © 2024"
 
 with st.sidebar:
     try:
-        st.image("8888.jpg", use_column_width=True)
+        st.image("logo.jpg", use_column_width=True)
     except:
         st.title("🦁")
     
