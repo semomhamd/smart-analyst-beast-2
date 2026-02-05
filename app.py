@@ -5,93 +5,92 @@ import plotly.express as px
 from datetime import datetime
 import io
 import base64
+from PIL import Image
 
 # ======== إعدادات الصفحة ========
 st.set_page_config(page_title="Data Beast Pro", layout="wide", page_icon="🦁")
 
-# ======== إعدادات اللغة ========
+# ======== تهيئة session_state ========
+if 'df' not in st.session_state:
+    st.session_state.df = None
 if 'language' not in st.session_state:
     st.session_state.language = 'ar'
-
-# ======== إعدادات الثيم ========
 if 'dark_mode' not in st.session_state:
     st.session_state.dark_mode = True
+if 'cleaning_history' not in st.session_state:
+    st.session_state.cleaning_history = []
+if 'page' not in st.session_state:
+    st.session_state.page = 'home'
 
-# ======== النصوص متعددة اللغات ========
+# ======== النصوص ========
 TEXTS = {
     'ar': {
         'title': 'Data Beast Pro',
-        'subtitle': 'منصة تحليل البيانات الشاملة',
         'home': '🏠 الرئيسية',
         'ocr': '👁️ OCR Vision',
         'upload': '📥 رفع بيانات',
+        'cleaner': '🧹 منظف البيانات',
         'excel': '📊 Excel Pro',
         'powerbi': '📈 Power BI',
         'sql': '🗄️ SQL',
         'ai': '🤖 AI',
         'export': '💾 تصدير',
         'settings': '⚙️ الإعدادات',
-        'data_cleaner': '🧹 منظف البيانات',
-        'sample_data': '📊 بيانات تجريبية',
-        'clear_data': '🗑️ مسح البيانات',
-        'language': 'اللغة',
-        'dark_mode': 'الوضع الداكن',
-        'light_mode': 'الوضع الفاتح',
+        'sample': '📊 بيانات تجريبية',
+        'clear': '🗑️ مسح',
+        'save': '💾 حفظ',
         'signature': '🔥 MIA8444 | Data Beast Pro © 2024'
     },
     'en': {
         'title': 'Data Beast Pro',
-        'subtitle': 'Comprehensive Data Analysis Platform',
         'home': '🏠 Home',
         'ocr': '👁️ OCR Vision',
-        'upload': '📥 Upload Data',
+        'upload': '📥 Upload',
+        'cleaner': '🧹 Cleaner',
         'excel': '📊 Excel Pro',
         'powerbi': '📈 Power BI',
         'sql': '🗄️ SQL',
         'ai': '🤖 AI',
         'export': '💾 Export',
         'settings': '⚙️ Settings',
-        'data_cleaner': '🧹 Data Cleaner',
-        'sample_data': '📊 Sample Data',
-        'clear_data': '🗑️ Clear Data',
-        'language': 'Language',
-        'dark_mode': 'Dark Mode',
-        'light_mode': 'Light Mode',
+        'sample': '📊 Sample',
+        'clear': '🗑️ Clear',
+        'save': '💾 Save',
         'signature': '🔥 MIA8444 | Data Beast Pro © 2024'
     }
 }
 
-def get_text(key):
+def t(key):
     return TEXTS[st.session_state.language].get(key, key)
 
-# ======== CSS ديناميكي حسب الثيم ========
-def get_css():
-    if st.session_state.dark_mode:
-        return """
-        <style>
-            .main {background-color: #0E1117; color: #FAFAFA;}
-            .sidebar .sidebar-content {background-color: #262730;}
-            .stButton>button {background: linear-gradient(45deg, #FF6B6B, #4ECDC4); color: white;}
-            .tool-card {background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 15px; color: white;}
-        </style>
-        """
-    else:
-        return """
-        <style>
-            .main {background-color: #FFFFFF; color: #333333;}
-            .sidebar .sidebar-content {background-color: #F0F2F6;}
-            .stButton>button {background: linear-gradient(45deg, #667eea, #764ba2); color: white;}
-            .tool-card {background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 15px; color: white;}
-        </style>
-        """
+# ======== CSS ========
+theme_css = """
+<style>
+    .main {background-color: #0E1117; color: #FAFAFA;}
+    .stButton>button {width: 100%; background: linear-gradient(45deg, #FF6B6B, #4ECDC4); color: white; border: none; border-radius: 10px; padding: 10px;}
+    .stButton>button:hover {transform: scale(1.05);}
+    .metric-card {background: linear-gradient(135deg, #667eea, #764ba2); padding: 20px; border-radius: 15px; color: white; text-align: center;}
+</style>
+""" if st.session_state.dark_mode else """
+<style>
+    .main {background-color: #FFFFFF; color: #333333;}
+    .stButton>button {width: 100%; background: linear-gradient(45deg, #667eea, #764ba2); color: white;}
+</style>
+"""
 
-st.markdown(get_css(), unsafe_allow_html=True)
+st.markdown(theme_css, unsafe_allow_html=True)
 
-# ======== الذاكرة الدائمة ========
-if 'df' not in st.session_state:
-    st.session_state.df = None
-if 'cleaning_history' not in st.session_state:
-    st.session_state.cleaning_history = []
+# ======== دوال مساعدة ========
+def generate_sample_data():
+    return pd.DataFrame({
+        'التاريخ': pd.date_range('2024-01-01', periods=100),
+        'المنتج': np.random.choice(['لابتوب', 'موبايل', 'تابلت', 'سماعات'], 100),
+        'الفئة': np.random.choice(['إلكترونيات', 'اكسسوارات'], 100),
+        'المبيعات': np.random.randint(1000, 50000, 100),
+        'الكمية': np.random.randint(1, 50, 100),
+        'الفرع': np.random.choice(['القاهرة', 'دبي', 'الرياض'], 100),
+        'التقييم': np.random.randint(1, 6, 100)
+    })
 
 # ======== Sidebar ========
 with st.sidebar:
@@ -99,249 +98,299 @@ with st.sidebar:
     try:
         st.image("logo.jpg", use_column_width=True)
     except:
-        st.title("🦁")
+        st.markdown("<h1 style='text-align:center;'>🦁</h1>", unsafe_allow_html=True)
     
-    st.title(get_text('title'))
+    st.title(t('title'))
     
-    # زر الإعدادات في الأعلى
-    if st.button("⚙️ " + get_text('settings'), use_container_width=True):
-        st.session_state.show_settings = True
+    # زر الإعدادات
+    if st.button("⚙️ " + t('settings'), key='btn_settings'):
+        st.session_state.page = 'settings'
+        st.rerun()
     
     st.write("---")
     
-    # القائمة الرئيسية
-    menu = st.radio(get_text('settings'), [
-        get_text('home'),
-        get_text('ocr'),
-        get_text('upload'),
-        get_text('data_cleaner'),
-        get_text('excel'),
-        get_text('powerbi'),
-        get_text('sql'),
-        get_text('ai'),
-        get_text('export')
-    ], label_visibility="collapsed")
+    # القائمة
+    menu_options = [t('home'), t('ocr'), t('upload'), t('cleaner'), t('excel'), t('powerbi'), t('sql'), t('ai'), t('export')]
+    
+    for i, option in enumerate(menu_options):
+        if st.button(option, key=f'menu_{i}'):
+            st.session_state.page = ['home', 'ocr', 'upload', 'cleaner', 'excel', 'powerbi', 'sql', 'ai', 'export'][i]
+            st.rerun()
     
     st.write("---")
     
     # أدوات سريعة
     st.markdown("### ⚡ " + ("أدوات سريعة" if st.session_state.language == 'ar' else "Quick Tools"))
     
-    cols = st.columns(2)
-    with cols[0]:
-        if st.button(get_text('sample_data'), use_container_width=True):
-            st.session_state.df = pd.DataFrame({
-                'التاريخ': pd.date_range('2024-01-01', periods=100),
-                'المنتج': np.random.choice(['لابتوب', 'موبايل', 'تابلت'], 100),
-                'الفئة': np.random.choice(['إلكترونيات', 'اكسسوارات'], 100),
-                'المبيعات': np.random.randint(1000, 50000, 100),
-                'الكمية': np.random.randint(1, 50, 100),
-                'الفرع': np.random.choice(['القاهرة', 'دبي', 'الرياض'], 100),
-                'التقييم': np.random.randint(1, 6, 100),
-                'الخصم': np.random.randint(0, 30, 100)
-            })
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button(t('sample'), key='btn_sample'):
+            st.session_state.df = generate_sample_data()
+            st.success("✅ تم!")
             st.rerun()
     
-    with cols[1]:
-        if st.button(get_text('clear_data'), use_container_width=True):
+    with col2:
+        if st.button(t('clear'), key='btn_clear'):
             st.session_state.df = None
             st.session_state.cleaning_history = []
+            st.success("✅ تم!")
             st.rerun()
     
     st.write("---")
-    st.caption(get_text('signature'))
-
-# ======== نافذة الإعدادات المنبثقة ========
-if st.session_state.get('show_settings', False):
-    with st.expander("⚙️ " + get_text('settings'), expanded=True):
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # تغيير اللغة
-            st.subheader("🌐 " + get_text('language'))
-            lang = st.radio("Language / اللغة", ['العربية', 'English'], 
-                          index=0 if st.session_state.language == 'ar' else 1)
-            if lang == 'العربية':
-                st.session_state.language = 'ar'
-            else:
-                st.session_state.language = 'en'
-        
-        with col2:
-            # تغيير الثيم
-            st.subheader("🎨 " + ("الثيم" if st.session_state.language == 'ar' else "Theme"))
-            theme = st.radio("Theme", [get_text('dark_mode'), get_text('light_mode')], 
-                           index=0 if st.session_state.dark_mode else 1)
-            st.session_state.dark_mode = (theme == get_text('dark_mode'))
-        
-        if st.button("✅ " + ("حفظ" if st.session_state.language == 'ar' else "Save"), type="primary"):
-            st.session_state.show_settings = False
-            st.rerun()
-
-df = st.session_state.df
+    st.caption(t('signature'))
 
 # ======== الصفحات ========
+page = st.session_state.page
+df = st.session_state.df
+
+# --- الإعدادات ---
+if page == 'settings':
+    st.header("⚙️ " + t('settings'))
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("🌐 اللغة / Language")
+        lang = st.radio("اختر / Choose:", ['العربية', 'English'], 
+                       index=0 if st.session_state.language == 'ar' else 1)
+        if lang == 'العربية':
+            st.session_state.language = 'ar'
+        else:
+            st.session_state.language = 'en'
+    
+    with col2:
+        st.subheader("🎨 الثيم / Theme")
+        theme = st.radio("اختر / Choose:", 
+                        ['داكن / Dark', 'فاتح / Light'],
+                        index=0 if st.session_state.dark_mode else 1)
+        st.session_state.dark_mode = (theme == 'داكن / Dark')
+    
+    if st.button("💾 " + t('save'), type='primary'):
+        st.session_state.page = 'home'
+        st.rerun()
 
 # --- الرئيسية ---
-if menu == get_text('home'):
-    st.markdown(f"<h1 style='text-align:center;'>🦁 {get_text('title')}</h1>", unsafe_allow_html=True)
-    st.markdown(f"<p style='text-align:center; color:gray;'>{get_text('subtitle')}</p>", unsafe_allow_html=True)
+elif page == 'home':
+    st.markdown("<h1 style='text-align:center;'>🦁 Data Beast Pro</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color:gray;'>منصة تحليل البيانات الشاملة</p>", unsafe_allow_html=True)
     
     if df is not None:
-        st.success(f"✅ {len(df):,} rows | {len(df.columns)} columns")
+        # بطاقات إحصائية
+        cols = st.columns(4)
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        
+        cols[0].metric("📊 الصفوف", len(df))
+        cols[1].metric("📋 الأعمدة", len(df.columns))
+        
+        if len(numeric_cols) > 0:
+            cols[2].metric("💰 الإجمالي", f"{df[numeric_cols[0]].sum():,.0f}")
+            cols[3].metric("📈 المتوسط", f"{df[numeric_cols[0]].mean():,.0f}")
+        
         st.dataframe(df.head(10), use_container_width=True)
     else:
-        st.info("📊 " + ("اضغط 'بيانات تجريبية' للبدء" if st.session_state.language == 'ar' else "Click 'Sample Data' to start"))
+        st.info("📊 اضغط 'بيانات تجريبية' في القائمة للبدء")
 
-# --- OCR Vision ---
-elif menu == get_text('ocr'):
+# --- OCR ---
+elif page == 'ocr':
     st.header("👁️ OCR Vision")
     
-    uploaded = st.file_uploader("📸 " + ("ارفع صورة:" if st.session_state.language == 'ar' else "Upload image:"), 
-                               ['jpg', 'jpeg', 'png'])
+    uploaded = st.file_uploader("📸 ارفع صورة:", ['jpg', 'jpeg', 'png'])
     
     if uploaded:
-        from PIL import Image
         image = Image.open(uploaded)
         st.image(image, use_column_width=True)
         
-        with st.spinner("⏳ " + ("جاري التحليل..." if st.session_state.language == 'ar' else "Analyzing...")):
+        with st.spinner("⏳ جاري التحليل..."):
             import time
-            time.sleep(2)
+            time.sleep(1)
             
             # محاكاة OCR
             ocr_data = {
-                'المنتج': ['لابتوب Dell', 'iPhone 15', 'Samsung Tab', 'AirPods', 'Mouse'],
-                'السعر': [12000, 25000, 8000, 3500, 500],
-                'الكمية': [2, 1, 3, 2, 10],
-                'التاريخ': ['2024-01-15'] * 5
+                'المنتج': ['لابتوب', 'موبايل', 'تابلت'],
+                'السعر': [12000, 25000, 8000],
+                'الكمية': [2, 1, 3]
             }
             df_ocr = pd.DataFrame(ocr_data)
             
-            st.success("✅ " + ("تم استخراج البيانات!" if st.session_state.language == 'ar' else "Data extracted!"))
-            st.dataframe(df_ocr, use_container_width=True)
+            st.success("✅ تم استخراج البيانات!")
+            st.dataframe(df_ocr)
             
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("📊 " + ("استخدم البيانات" if st.session_state.language == 'ar' else "Use Data"), type="primary"):
-                    st.session_state.df = df_ocr
-                    st.success("✅ Done!")
-            with col2:
-                csv = df_ocr.to_csv(index=False)
-                st.download_button("📥 CSV", csv, "ocr_data.csv", "text/csv")
+            if st.button("📊 استخدم البيانات", type='primary'):
+                st.session_state.df = df_ocr
+                st.success("✅ تم التحميل!")
 
 # --- رفع بيانات ---
-elif menu == get_text('upload'):
-    st.header(get_text('upload'))
-    f = st.file_uploader("Choose file", ['csv', 'xlsx'])
-    if f:
-        st.session_state.df = pd.read_csv(f) if f.name.endswith('.csv') else pd.read_excel(f)
-        st.success("✅ Done!")
+elif page == 'upload':
+    st.header(t('upload'))
+    
+    uploaded = st.file_uploader("اختر ملف:", ['csv', 'xlsx', 'xls'])
+    
+    if uploaded:
+        try:
+            if uploaded.name.endswith('.csv'):
+                df_new = pd.read_csv(uploaded)
+            else:
+                df_new = pd.read_excel(uploaded)
+            
+            st.session_state.df = df_new
+            st.success(f"✅ تم استيراد {len(df_new)} صف!")
+            st.dataframe(df_new.head())
+        except Exception as e:
+            st.error(f"❌ خطأ: {str(e)}")
 
 # --- منظف البيانات ---
-elif menu == get_text('data_cleaner'):
-    st.header("🧹 " + ("منظف البيانات" if st.session_state.language == 'ar' else "Data Cleaner"))
+elif page == 'cleaner':
+    st.header("🧹 " + t('cleaner'))
     
     if df is not None:
-        st.subheader("📊 " + ("حالة البيانات" if st.session_state.language == 'ar' else "Data Status"))
-        
+        # إحصائيات
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("الصفوف" if st.session_state.language == 'ar' else "Rows", len(df))
-        col2.metric("الأعمدة" if st.session_state.language == 'ar' else "Columns", len(df.columns))
-        col3.metric("القيم الفارغة" if st.session_state.language == 'ar' else "Missing", df.isnull().sum().sum())
-        col4.metric("التكرارات" if st.session_state.language == 'ar' else "Duplicates", df.duplicated().sum())
+        col1.metric("الصفوف", len(df))
+        col2.metric("الأعمدة", len(df.columns))
+        col3.metric("الفارغ", int(df.isnull().sum().sum()))
+        col4.metric("التكرار", int(df.duplicated().sum()))
         
         st.write("---")
-        st.subheader("🔧 " + ("أدوات التنظيف" if st.session_state.language == 'ar' else "Cleaning Tools"))
+        
+        # أدوات التنظيف
+        st.subheader("🔧 أدوات التنظيف")
         
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            if st.button("🗑️ " + ("حذف الفارغ" if st.session_state.language == 'ar' else "Drop NA"), use_container_width=True):
+            if st.button("🗑️ حذف الفارغ", key='drop_na'):
                 st.session_state.df = df.dropna()
-                st.session_state.cleaning_history.append("حذف الفارغ")
+                st.session_state.cleaning_history.append("حذف القيم الفارغة")
+                st.success("✅ تم!")
                 st.rerun()
         
         with col2:
-            if st.button("📋 " + ("حذف التكرار" if st.session_state.language == 'ar' else "Drop Duplicates"), use_container_width=True):
+            if st.button("📋 حذف التكرار", key='drop_dup'):
                 st.session_state.df = df.drop_duplicates()
-                st.session_state.cleaning_history.append("حذف التكرار")
+                st.session_state.cleaning_history.append("حذف التكرارات")
+                st.success("✅ تم!")
                 st.rerun()
         
         with col3:
-            if st.button("🔤 " + ("تنظيف النص" if st.session_state.language == 'ar' else "Clean Text"), use_container_width=True):
-                for col in df.select_dtypes(include=['object']):
-                    df[col] = df[col].str.strip().str.title()
-                st.session_state.df = df
-                st.session_state.cleaning_history.append("تنظيف النص")
+            if st.button("🔤 تنظيف النص", key='clean_text'):
+                df_clean = df.copy()
+                for col in df_clean.select_dtypes(include=['object']):
+                    df_clean[col] = df_clean[col].str.strip().str.title()
+                st.session_state.df = df_clean
+                st.session_state.cleaning_history.append("تنظيف النصوص")
+                st.success("✅ تم!")
                 st.rerun()
         
         # سجل التنظيف
         if st.session_state.cleaning_history:
-            with st.expander("📜 " + ("سجل التنظيف" if st.session_state.language == 'ar' else "Cleaning History")):
+            with st.expander("📜 سجل التنظيف"):
                 for i, action in enumerate(st.session_state.cleaning_history, 1):
                     st.write(f"{i}. {action}")
         
+        st.write("---")
         st.dataframe(df, use_container_width=True)
     else:
-        st.error("❌ " + ("لا توجد بيانات" if st.session_state.language == 'ar' else "No data"))
+        st.error("❌ لا توجد بيانات")
 
 # --- Excel Pro ---
-elif menu == get_text('excel'):
-    st.header(get_text('excel'))
+elif page == 'excel':
+    st.header(t('excel'))
+    
     if df is not None:
         edited = st.data_editor(df, num_rows="dynamic", use_container_width=True, height=500)
-        if st.button("💾 " + ("حفظ" if st.session_state.language == 'ar' else "Save"), type="primary"):
+        
+        if st.button("💾 " + t('save'), type='primary'):
             st.session_state.df = edited
-            st.success("✅ Done!")
+            st.success("✅ تم الحفظ!")
+            st.balloons()
     else:
-        st.error("❌ No data")
+        st.error("❌ لا توجد بيانات")
 
 # --- Power BI ---
-elif menu == get_text('powerbi'):
-    st.header(get_text('powerbi'))
+elif page == 'powerbi':
+    st.header(t('powerbi'))
+    
     if df is not None:
-        numeric = df.select_dtypes(include=[np.number]).columns
-        if len(numeric) > 0:
-            col = numeric[0]
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Total", f"{df[col].sum():,.0f}")
-            c2.metric("Average", f"{df[col].mean():,.0f}")
-            c3.metric("Count", len(df))
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        
+        if len(numeric_cols) > 0:
+            kpi = st.selectbox("اختر المؤشر:", numeric_cols)
             
-            if 'الفرع' in df.columns or 'Branch' in df.columns:
-                branch_col = 'الفرع' if 'الفرع' in df.columns else 'Branch'
-                st.plotly_chart(px.pie(df, values=col, names=branch_col), use_container_width=True)
+            cols = st.columns(4)
+            cols[0].metric("الإجمالي", f"{df[kpi].sum():,.0f}")
+            cols[1].metric("المتوسط", f"{df[kpi].mean():,.0f}")
+            cols[2].metric("الأعلى", f"{df[kpi].max():,.0f}")
+            cols[3].metric("العدد", len(df))
+            
+            cat_cols = df.select_dtypes(include=['object']).columns
+            if len(cat_cols) > 0:
+                cat = st.selectbox("التصنيف:", cat_cols)
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    fig = px.pie(df, values=kpi, names=cat, title=f"توزيع {kpi}")
+                    st.plotly_chart(fig, use_container_width=True)
+                with col2:
+                    fig2 = px.bar(df.groupby(cat)[kpi].sum().reset_index(), x=cat, y=kpi, title=f"مجموع {kpi}")
+                    st.plotly_chart(fig2, use_container_width=True)
     else:
-        st.error("❌ No data")
+        st.error("❌ لا توجد بيانات")
 
 # --- SQL ---
-elif menu == get_text('sql'):
-    st.header(get_text('sql'))
+elif page == 'sql':
+    st.header(t('sql'))
+    
     if df is not None:
-        st.info("🔧 SQL - " + ("قيد التطوير" if st.session_state.language == 'ar' else "Coming soon"))
+        st.info("🔧 SQL - قيد التطوير")
+        
+        query = st.text_area("اكتب استعلام SQL:", "SELECT * FROM data LIMIT 10")
+        
+        if st.button("▶️ تشغيل"):
+            st.warning("مكتبة DuckDB غير مثبتة في السحابة")
     else:
-        st.error("❌ No data")
+        st.error("❌ لا توجد بيانات")
 
 # --- AI ---
-elif menu == get_text('ai'):
-    st.header(get_text('ai'))
+elif page == 'ai':
+    st.header(t('ai'))
+    
     if df is not None:
-        q = st.text_input("Ask / اسأل:")
-        if q:
-            total = df.select_dtypes(include=[np.number]).sum().sum()
-            st.success(f"Total: {total:,.0f}")
+        question = st.text_input("🤖 اسأل الوحش:", "ما إجمالي المبيعات؟")
+        
+        if st.button("🚀 تحليل"):
+            numeric_cols = df.select_dtypes(include=[np.number]).columns
+            if len(numeric_cols) > 0:
+                total = df[numeric_cols].sum().sum()
+                st.success(f"💰 الإجمالي: {total:,.0f}")
+                
+                if 'الفرع' in df.columns:
+                    best_branch = df.groupby('الفرع')[numeric_cols[0]].sum().idxmax()
+                    st.info(f"🏆 أفضل فرع: {best_branch}")
     else:
-        st.error("❌ No data")
+        st.error("❌ لا توجد بيانات")
 
 # --- تصدير ---
-elif menu == get_text('export'):
-    st.header(get_text('export'))
+elif page == 'export':
+    st.header(t('export'))
+    
     if df is not None:
-        csv = df.to_csv(index=False)
-        b64 = base64.b64encode(csv.encode()).decode()
-        st.markdown(f'<a href="data:file/csv;base64,{b64}" download="data.csv"><button>📥 CSV</button></a>', unsafe_allow_html=True)
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            csv = df.to_csv(index=False)
+            b64 = base64.b64encode(csv.encode()).decode()
+            st.markdown(f'<a href="data:file/csv;base64,{b64}" download="data.csv"><button style="width:100%; padding:10px; background:#4ECDC4; color:white; border:none; border-radius:5px;">📥 CSV</button></a>', unsafe_allow_html=True)
+        
+        with col2:
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                df.to_excel(writer, sheet_name='Data', index=False)
+            b64 = base64.b64encode(output.getvalue()).decode()
+            st.markdown(f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="data.xlsx"><button style="width:100%; padding:10px; background:#FF6B6B; color:white; border:none; border-radius:5px;">📥 Excel</button></a>', unsafe_allow_html=True)
     else:
-        st.error("❌ No data")
+        st.error("❌ لا توجد بيانات")
 
+# ======== Footer ========
 st.write("---")
-st.markdown(f"<p style='text-align:center; color:#4ECDC4;'>{get_text('signature')}</p>", unsafe_allow_html=True)
+st.markdown(f"<p style='text-align:center; color:#4ECDC4;'>{t('signature')}</p>", unsafe_allow_html=True)
