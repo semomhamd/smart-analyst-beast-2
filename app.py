@@ -1,3 +1,5 @@
+
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -9,638 +11,1296 @@ import base64
 from fpdf import FPDF
 import json
 import random
+import hashlib
+import time
+from typing import Optional, List, Dict, Any
 
-# ======== FETH - محلل البيانات الذكي ========
+# ======== محاولة استيراد Supabase ========
+try:
+    from supabase import create_client, Client
+    SUPABASE_AVAILABLE = True
+except ImportError:
+    SUPABASE_AVAILABLE = False
+    st.warning("⚠️ مكتبة Supabase غير مثبتة. سيتم استخدام الوضع المحلي.")
+
+# ======== إعدادات Smart Analyst The Beast ========
+class BeastConfig:
+    """إعدادات التطبيق"""
+    APP_NAME = "Smart Analyst The Beast"
+    APP_NAME_AR = "المحلل الذكي الوحش"
+    VERSION = "2.0.0"
+    AUTHOR = "MIA8444"
+    
+    # Supabase Settings - املأ هذه القيم
+    SUPABASE_URL = st.secrets.get("SUPABASE_URL", "") if hasattr(st, 'secrets') else ""
+    SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "") if hasattr(st, 'secrets') else ""
+    
+    # Logo URL من GitHub
+    LOGO_URL = "https://raw.githubusercontent.com/semomhamd/smart-analyst-beast-2/main/logo.jpg"
+    
+    # Colors
+    PRIMARY_COLOR = "#3498DB"
+    SECONDARY_COLOR = "#2C3E50"
+    ACCENT_COLOR = "#E74C3C"
+    SUCCESS_COLOR = "#27AE60"
+
+# ======== FETH - المحلل الذكي المتقدم ========
 class FethPersonality:
-    """عقل FETH وشخصيته"""
+    """عقل FETH المتقدم - محلل البيانات الذكي"""
     
     def _init_(self):
         self.name = "FETH"
         self.arabic_name = "فَتْح"
+        self.version = "2.0"
+        self.mood = "enthusiastic"
         
     def get_identity(self):
         return {
             "name": self.name,
             "meaning": "الكشف، الوضوح، فتح البيانات",
             "role": "محلل بيانات ذكي + مرشد + صاحب",
-            "tone": "واضح، داعم، محترف، خفيف",
-            "signature": "— FETH | بيفتح البيانات 🎯"
+            "tone": "واضح، داعم، محترف، خفيف، ذكي",
+            "signature": "— FETH | بيفتح البيانات 🎯",
+            "version": self.version
         }
     
-    def respond(self, context, data_insight=None):
-        """يختار الرد المناسب حسب السياق"""
+    def analyze_data_mood(self, df: pd.DataFrame) -> str:
+        """يحلل مزاج البيانات ويرجع وصف"""
+        if df is None or df.empty:
+            return "empty"
+        
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) == 0:
+            return "text_only"
+        
+        # تحليل الأرقام
+        total = df[numeric_cols[0]].sum() if len(numeric_cols) > 0 else 0
+        avg = df[numeric_cols[0]].mean() if len(numeric_cols) > 0 else 0
+        
+        if total > 1000000:
+            return "massive"
+        elif total > 100000:
+            return "huge"
+        elif total > 10000:
+            return "good"
+        elif len(df) > 1000:
+            return "big_data"
+        else:
+            return "normal"
+    
+    def respond(self, context: str, data_insight: str = None, df: pd.DataFrame = None) -> str:
+        """يختار الرد المناسب حسب السياق والبيانات"""
+        
+        # تحليل مزاج البيانات
+        data_mood = self.analyze_data_mood(df) if df is not None else "normal"
         
         responses = {
-            'welcome': [
-                "أهلاً بيك! أنا FETH... جاهز أفتحلك أي بيانات 🎯",
-                "مرحباً! FETH هنا... خلينا نكتشف سوا إيه مخبية البيانات",
-                "أهلاً! مع FETH البيانات هتتفتح زي كتاب 📖"
-            ],
-            'upload_success': [
-                f"استلمت الملف! {data_insight or ''}... خليني أفتحه وأشوف جواه إيه 🔍",
-                "تمام! البيانات جات... FETH بيفتحها دلوقتي",
-                "ملف جديد! جاهزين نكتشف أسراره سوا؟"
-            ],
+            'welcome': {
+                'normal': [
+                    "أهلاً بيك في Smart Analyst The Beast! 🦁 أنا FETH... جاهز أفتحلك أي بيانات",
+                    "مرحباً! FETH هنا في الوضعية الذكية... خلينا نكتشف سوا إيه مخبية البيانات",
+                    "أهلاً بيك يا محلل! مع FETH البيانات هتتفتح زي كتاب 📖"
+                ],
+                'big_data': [
+                    "🚀 واو! عندك بيانات ضخمة! FETH جاهز للتحدي!",
+                    "💪 بيانات كبيرة؟ ده اختصاصي! خليني أوريك القوة الحقيقية"
+                ]
+            },
+            'upload_success': {
+                'normal': [
+                    f"✅ استلمت الملف! {data_insight or ''}... خليني أفتحه وأشوف جواه إيه 🔍",
+                    "📊 تمام! البيانات جات... FETH بيفتحها دلوقتي",
+                    f"🎯 ملف جديد! {data_insight or ''} جاهزين نكتشف أسراره سوا؟"
+                ],
+                'huge': [
+                    f"🔥 {data_insight or ''} ده كمية ضخمة! FETH بيحب التحديات!",
+                    "💪 بيانات ضخمة استلمتها! جاهز أحللها في ثواني"
+                ]
+            },
             'analysis_ready': [
-                "فتحت البيانات... وده اللي لقيته 👇",
-                "التحليل جهز! خليني أفتحلك الرؤية واضحة",
-                "كشفت البيانات... والنتيجة مثيرة!"
+                "🧠 فتحت البيانات بذكاء... وده اللي لقيته 👇",
+                "⚡ التحليل جهز بقوة الوحش! خليني أفتحلك الرؤية واضحة",
+                "🎯 كشفت البيانات بالذكاء الاصطناعي... والنتيجة مثيرة!"
             ],
             'insight_high': [
                 f"🚀 رقم قياسي! {data_insight}... ده أعلى قيمة شوفتها",
-                f"🔥 لاحظت حاجة! {data_insight}... فوق المتوقع",
-                f"✨ ممتاز! {data_insight}... إنجاز يستحق الاحتفال"
+                f"🔥 لاحظت حاجة مثيرة! {data_insight}... فوق المتوقع بمراحل",
+                f"✨ إنجاز ممتاز! {data_insight}... يستاهل الاحتفال 🎉"
             ],
             'insight_low': [
                 f"⚠️ فتحت البيانات ولقيت: {data_insight}... خليني أساعدك تفهم ليه",
-                f"👀 لاحظت نقطة: {data_insight}... ممكن نحسنها سوا",
+                f"👀 نقطة مهمة: {data_insight}... ممكن نحسنها سوا بذكاء",
                 f"💡 البيانات بتقول: {data_insight}... عندك فكرة ليه؟"
             ],
             'teaching': [
-                "خليني أفتحلك النقطة دي ببساطة...",
-                "تخيّل معايا كده...",
-                "السر هنا إنه..."
+                "🎓 خليني أفتحلك النقطة دي ببساطة وذكاء...",
+                "💡 تخيّل معايا كده...",
+                "🧠 السر هنا إنه...",
+                "📚 من خبرة FETH في التحليل..."
             ],
             'support': [
-                "ولا يهمك... خلينا نمشي خطوة خطوة 🤝",
-                "تمام، أنا معاك... جرب كده",
-                "مش مشكلة، FETH هيساعدك تعديها"
+                "🤝 ولا يهمك... خلينا نمشي خطوة خطوة",
+                "👌 تمام، أنا معاك... جرب كده",
+                "💪 مش مشكلة، FETH هيساعدك تعديها بقوة"
             ],
             'celebration': [
-                "🎉 كده فتحتها! إنجاز رائع",
+                "🎉 كده! إنجاز رائع يستاهل الاحتفال",
                 "👏 أحسنت! البيانات دلوقتي واضحة زي الشمس",
                 "🎯 هدف محقق! جاهز للخطوة الجاية؟"
             ],
             'error': [
-                "حصلت حاجة بسيطة... خليني أجرب تاني",
-                "مش مشكلة، كلنا بنغلط... جرب معايا كده",
-                "FETH لسه بيتعلم... ساعدني أفهم المشكلة"
+                "⚠️ حصلت حاجة بسيطة... خليني أجرب تاني بذكاء",
+                "🔄 مش مشكلة، كلنا بنتعلم... جرب معايا كده",
+                "🛠️ FETH لسه بيتعلم... ساعدني أفهم المشكلة"
+            ],
+            'cloud_sync': [
+                "☁️ تم حفظ البيانات في السحابة! جاهز من أي مكان",
+                "🔄 متزامن مع السحابة! أمان تام لبياناتك",
+                "💾 محفوظ في الذاكرة السحابية!"
             ]
         }
         
+        # اختيار الرد المناسب
         if context in responses:
+            if isinstance(responses[context], dict):
+                mood_responses = responses[context].get(data_mood, responses[context]['normal'])
+                return random.choice(mood_responses)
             return random.choice(responses[context])
-        return "FETH هنا... جاهز أساعدك 🎯"
+        
+        return "🎯 FETH هنا... جاهز أساعدك بقوة الوحش!"
     
-    def suggest_next(self, current_page):
+    def suggest_next(self, current_page: str) -> List[str]:
         """يقترح الخطوة الجاية حسب السياق"""
         
         suggestions = {
             'home': [
                 "📥 ارفع ملف بيانات جديد",
-                "📊 جرب البيانات التجريبية",
+                "📊 جرب البيانات التجريبية الضخمة",
+                "🔐 سجل دخول للوصول للسحابة",
                 "🤖 اسأل FETH عن أي حاجة"
             ],
             'upload': [
                 "🧹 نظف البيانات من الفارغ",
                 "📊 روح لتحليل Power BI",
+                "☁️ احفظ في السحابة",
                 "🤖 اسأل FETH يحلللك البيانات"
             ],
             'cleaner': [
                 "📊 شوف التحليلات البصرية",
                 "📈 اعمل Pivot Table",
+                "☁️ احفظ النسخة النظيفة",
                 "🤖 اسأل FETH عن النتائج"
             ],
             'excel': [
                 "📈 اعمل رسم بياني",
                 "📤 صدّر التقرير PDF",
+                "☁️ احفظ في السحابة",
                 "🤖 اسأل FETH يفسر الصيغ"
             ],
             'powerbi': [
                 "📊 غيّر نوع الرسم البياني",
                 "📤 صدّر النتائج",
+                "☁️ شارك التحليل",
                 "🤖 اسأل FETH عن التوجهات"
             ],
             'ai': [
                 "📊 روح للتحليل البصري",
                 "📤 جهّز تقرير PDF",
+                "☁️ احفظ المحادثة",
                 "🧹 نظف البيانات أكتر"
+            ],
+            'login': [
+                "📥 ارفع ملفات متعددة",
+                "☁️ شوف بياناتك المحفوظة",
+                "🤖 فعّل الذكاء الاصطناعي",
+                "📊 ابدأ تحليل جديد"
             ]
         }
         return suggestions.get(current_page, ["🤖 اسأل FETH"])
     
-    def get_signature(self):
+    def get_signature(self) -> str:
         return "— FETH | بيفتح البيانات 🎯"
 
+# ======== Supabase Manager ========
+class SupabaseManager:
+    """إدارة قاعدة البيانات السحابية"""
+    
+    def _init_(self):
+        self.client: Optional[Client] = None
+        self.connected = False
+        self._init_connection()
+    
+    def _init_connection(self):
+        """تهيئة الاتصال بـ Supabase"""
+        if not SUPABASE_AVAILABLE:
+            return
+        
+        try:
+            url = BeastConfig.SUPABASE_URL
+            key = BeastConfig.SUPABASE_KEY
+            
+            if url and key:
+                self.client = create_client(url, key)
+                self.connected = True
+        except Exception as e:
+            st.error(f"خطأ في الاتصال بـ Supabase: {e}")
+            self.connected = False
+    
+    def sign_up(self, email: str, password: str) -> Dict:
+        """تسجيل مستخدم جديد"""
+        if not self.connected:
+            return {"error": "Supabase غير متصل"}
+        
+        try:
+            response = self.client.auth.sign_up({
+                "email": email,
+                "password": password
+            })
+            return {"success": True, "user": response.user}
+        except Exception as e:
+            return {"error": str(e)}
+    
+    def sign_in(self, email: str, password: str) -> Dict:
+        """تسجيل الدخول"""
+        if not self.connected:
+            return {"error": "Supabase غير متصل"}
+        
+        try:
+            response = self.client.auth.sign_in_with_password({
+                "email": email,
+                "password": password
+            })
+            return {"success": True, "user": response.user, "session": response.session}
+        except Exception as e:
+            return {"error": str(e)}
+    
+    def save_dataframe(self, user_id: str, name: str, df: pd.DataFrame) -> Dict:
+        """حفظ DataFrame في السحابة"""
+        if not self.connected:
+            return {"error": "Supabase غير متصل"}
+        
+        try:
+            # تحويل DataFrame لـ JSON
+            data_json = df.to_json(orient='records', force_ascii=False)
+            
+            # حفظ في قاعدة البيانات
+            response = self.client.table('user_datasets').insert({
+                'user_id': user_id,
+                'name': name,
+                'data': data_json,
+                'created_at': datetime.now().isoformat(),
+                'rows': len(df),
+                'columns': len(df.columns)
+            }).execute()
+            
+            return {"success": True, "data": response.data}
+        except Exception as e:
+            return {"error": str(e)}
+    
+    def get_user_datasets(self, user_id: str) -> List[Dict]:
+        """جلب بيانات المستخدم المحفوظة"""
+        if not self.connected:
+            return []
+        
+        try:
+            response = self.client.table('user_datasets')\
+                .select('*')\
+                .eq('user_id', user_id)\
+                .order('created_at', desc=True)\
+                .execute()
+            return response.data
+        except Exception as e:
+            st.error(f"خطأ في جلب البيانات: {e}")
+            return []
+    
+    def load_dataset(self, dataset_id: str) -> Optional[pd.DataFrame]:
+        """تحميل dataset من السحابة"""
+        if not self.connected:
+            return None
+        
+        try:
+            response = self.client.table('user_datasets')\
+                .select('data')\
+                .eq('id', dataset_id)\
+                .execute()
+            
+            if response.data:
+                data_json = response.data[0]['data']
+                return pd.read_json(data_json)
+            return None
+        except Exception as e:
+            st.error(f"خطأ في تحميل البيانات: {e}")
+            return None
 
-# ======== إعدادات الصفحة ========
-st.set_page_config(page_title="Data Beast Pro | FETH", layout="wide", page_icon="🎯")
+# ======== إعدادات الصفحة - Responsive Design ========
+st.set_page_config(
+    page_title="Smart Analyst The Beast | FETH",
+    page_icon="🦁",
+    layout="wide",
+    initial_sidebar_state="collapsed"  # أفضل للموبايل
+)
+
+# ======== CSS متجاوب للموبايل والديسكتوب ========
+def get_responsive_css():
+    return """
+    <style>
+        /* Base Styles */
+        .main {
+            background-color: #0E1117;
+            color: #FAFAFA;
+        }
+        
+        /* Responsive Container */
+        .responsive-container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        
+        /* Mobile-First Sidebar */
+        @media (max-width: 768px) {
+            .css-1d391kg { /* Sidebar */
+                width: 100% !important;
+            }
+            .stButton > button {
+                width: 100%;
+                font-size: 14px;
+                padding: 12px;
+            }
+            h1 {
+                font-size: 24px !important;
+            }
+            h2 {
+                font-size: 20px !important;
+            }
+            .metric-card {
+                padding: 10px;
+            }
+            .feth-box {
+                padding: 10px;
+            }
+        }
+        
+        /* Desktop Styles */
+        @media (min-width: 769px) {
+            .stButton > button {
+                font-size: 16px;
+                padding: 10px 20px;
+            }
+        }
+        
+        /* Beast Branding */
+        .beast-header {
+            background: linear-gradient(135deg, #3498DB, #2C3E50);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+        }
+        
+        .beast-title {
+            font-size: 32px;
+            font-weight: bold;
+            color: white;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .beast-subtitle {
+            font-size: 18px;
+            color: rgba(255,255,255,0.9);
+            margin: 5px 0;
+        }
+        
+        /* Cards */
+        .metric-card {
+            background: linear-gradient(135deg, #3498DB, #2C3E50);
+            padding: 20px;
+            border-radius: 15px;
+            color: white;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            transition: transform 0.3s;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        /* FETH Box */
+        .feth-box {
+            background: linear-gradient(135deg, #3498DB, #2C3E50);
+            padding: 15px;
+            border-radius: 15px;
+            color: white;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        
+        /* Buttons */
+        .stButton > button {
+            background: linear-gradient(45deg, #3498DB, #2C3E50);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .stButton > button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
+        }
+        
+        /* Mobile Menu Toggle */
+        .mobile-menu-btn {
+            display: block;
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: #3498DB;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px;
+            font-size: 20px;
+        }
+        
+        @media (min-width: 769px) {
+            .mobile-menu-btn {
+                display: none;
+            }
+        }
+        
+        /* Data Grid */
+        .excel-cell {
+            border: 1px solid #444;
+            padding: 5px;
+            text-align: center;
+        }
+        
+        .formula-bar {
+            background: #1a1a2e;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        
+        /* Login Form */
+        .login-box {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 30px;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        /* Multi-file Upload Zone */
+        .upload-zone {
+            border: 3px dashed #3498DB;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            background: rgba(52, 152, 219, 0.1);
+            transition: all 0.3s;
+        }
+        
+        .upload-zone:hover {
+            background: rgba(52, 152, 219, 0.2);
+            border-color: #2980B9;
+        }
+        
+        /* Animations */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .beast-pulse {
+            animation: pulse 2s infinite;
+        }
+    </style>
+    """
+
+st.markdown(get_responsive_css(), unsafe_allow_html=True)
 
 # ======== تهيئة session_state ========
-if 'df' not in st.session_state:
-    st.session_state.df = None
-if 'language' not in st.session_state:
-    st.session_state.language = 'ar'
-if 'dark_mode' not in st.session_state:
-    st.session_state.dark_mode = True
-if 'cleaning_history' not in st.session_state:
-    st.session_state.cleaning_history = []
-if 'page' not in st.session_state:
-    st.session_state.page = 'home'
-if 'chat_history' not in st.session_state:
-    st.session_state.chat_history = []
-if 'excel_formulas' not in st.session_state:
-    st.session_state.excel_formulas = {}
-if 'feth' not in st.session_state:
-    st.session_state.feth = FethPersonality()
-if 'feth_welcomed' not in st.session_state:
-    st.session_state.feth_welcomed = False
+def init_session_state():
+    defaults = {
+        'df': None,
+        'dfs': [],  # لرفع ملفات متعددة
+        'language': 'ar',
+        'dark_mode': True,
+        'cleaning_history': [],
+        'page': 'home',
+        'chat_history': [],
+        'excel_formulas': {},
+        'feth': FethPersonality(),
+        'feth_welcomed': False,
+        'user': None,
+        'session': None,
+        'supabase': SupabaseManager(),
+        'mobile_menu_open': False,
+        'uploaded_files_count': 0
+    }
+    
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
 
-# ======== النصوص ========
+init_session_state()
+
+# ======== النصوص متعددة اللغات ========
 TEXTS = {
     'ar': {
-        'title': 'Data Beast Pro',
+        'title': 'Smart Analyst The Beast',
+        'subtitle': 'المحلل الذكي الوحش',
         'home': '🏠 الرئيسية',
+        'login': '🔐 تسجيل الدخول',
         'ocr': '👁️ OCR Vision',
         'upload': '📥 رفع بيانات',
+        'multi_upload': '📁 رفع متعدد',
         'cleaner': '🧹 منظف البيانات',
         'excel': '📊 Excel Pro',
         'powerbi': '📈 Power BI',
         'sql': '🗄️ SQL',
         'ai': '🤖 FETH AI',
         'export': '💾 تصدير',
+        'cloud': '☁️ السحابة',
         'settings': '⚙️ الإعدادات',
-        'share': '📤 مشاركة',
+        'logout': '🚪 خروج',
         'sample': '📊 بيانات تجريبية',
         'clear': '🗑️ مسح',
         'save': '💾 حفظ',
-        'signature': '🔥 MIA8444 | Data Beast Pro © 2024 | 🎯 FETH'
+        'welcome': 'أهلاً بيك في عالم التحليل الذكي!',
+        'signature': '🔥 MIA8444 | Smart Analyst The Beast © 2024 | 🎯 FETH'
     },
     'en': {
-        'title': 'Data Beast Pro',
+        'title': 'Smart Analyst The Beast',
+        'subtitle': 'The Intelligent Beast Analyst',
         'home': '🏠 Home',
+        'login': '🔐 Login',
         'ocr': '👁️ OCR Vision',
         'upload': '📥 Upload',
+        'multi_upload': '📁 Multi Upload',
         'cleaner': '🧹 Cleaner',
         'excel': '📊 Excel Pro',
         'powerbi': '📈 Power BI',
         'sql': '🗄️ SQL',
         'ai': '🤖 FETH AI',
         'export': '💾 Export',
+        'cloud': '☁️ Cloud',
         'settings': '⚙️ Settings',
-        'share': '📤 Share',
+        'logout': '🚪 Logout',
         'sample': '📊 Sample',
         'clear': '🗑️ Clear',
         'save': '💾 Save',
-        'signature': '🔥 MIA8444 | Data Beast Pro © 2024 | 🎯 FETH'
+        'welcome': 'Welcome to the world of intelligent analysis!',
+        'signature': '🔥 MIA8444 | Smart Analyst The Beast © 2024 | 🎯 FETH'
     }
 }
 
 def t(key):
     return TEXTS[st.session_state.language].get(key, key)
 
-# ======== CSS ========
-theme_css = """
-<style>
-    .main {background-color: #0E1117; color: #FAFAFA;}
-    .stButton>button {width: 100%; background: linear-gradient(45deg, #3498DB, #2C3E50); color: white; border: none; border-radius: 10px; padding: 10px;}
-    .stButton>button:hover {transform: scale(1.05); box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);}
-    .metric-card {background: linear-gradient(135deg, #3498DB, #2C3E50); padding: 20px; border-radius: 15px; color: white; text-align: center;}
-    .feth-box {background: linear-gradient(135deg, #3498DB, #2C3E50); padding: 15px; border-radius: 15px; color: white; text-align: center; margin-bottom: 20px;}
-    .excel-cell {border: 1px solid #444; padding: 5px; text-align: center;}
-    .formula-bar {background: #1a1a2e; padding: 10px; border-radius: 5px; font-family: monospace;}
-</style>
-""" if st.session_state.dark_mode else """
-<style>
-    .main {background-color: #FFFFFF; color: #333333;}
-    .stButton>button {width: 100%; background: linear-gradient(45deg, #3498DB, #2C3E50); color: white;}
-    .feth-box {background: linear-gradient(135deg, #3498DB, #2C3E50); padding: 15px; border-radius: 15px; color: white; text-align: center; margin-bottom: 20px;}
-</style>
-"""
-
-st.markdown(theme_css, unsafe_allow_html=True)
-
 # ======== دوال مساعدة ========
-def generate_sample_data():
-    return pd.DataFrame({
-        'التاريخ': pd.date_range('2024-01-01', periods=100),
-        'المنتج': np.random.choice(['لابتوب', 'موبايل', 'تابلت', 'سماعات', 'شاحن'], 100),
-        'الفئة': np.random.choice(['إلكترونيات', 'اكسسوارات', 'أجهزة'], 100),
-        'المبيعات': np.random.randint(1000, 50000, 100),
-        'الكمية': np.random.randint(1, 50, 100),
-        'السعر': np.random.randint(500, 25000, 100),
-        'الفرع': np.random.choice(['القاهرة', 'دبي', 'الرياض', 'جدة'], 100),
-        'التقييم': np.random.randint(1, 6, 100),
-        'الخصم': np.random.randint(0, 30, 100)
-    })
+def generate_sample_data(size=100):
+    """بيانات تجريبية أكبر وأكثر واقعية"""
+    np.random.seed(42)
+    
+    products = ['لابتوب', 'موبايل', 'تابلت', 'سماعات', 'شاحن', 'كيبورد', 'ماوس', 'شاشة']
+    categories = ['إلكترونيات', 'اكسسوارات', 'أجهزة', 'برمجيات']
+    branches = ['القاهرة', 'دبي', 'الرياض', 'جدة', 'الكويت', 'الدوحة']
+    
+    data = {
+        'التاريخ': pd.date_range('2024-01-01', periods=size, freq='D'),
+        'المنتج': np.random.choice(products, size),
+        'الفئة': np.random.choice(categories, size),
+        'المبيعات': np.random.randint(1000, 100000, size),
+        'الكمية': np.random.randint(1, 100, size),
+        'السعر': np.random.randint(500, 50000, size),
+        'الفرع': np.random.choice(branches, size),
+        'التقييم': np.random.randint(1, 6, size),
+        'الخصم': np.random.randint(0, 50, size),
+        'العميل': [f'عميل_{i}' for i in range(size)],
+        'الموظف': np.random.choice(['أحمد', 'محمد', 'علي', 'خالد', 'سامي'], size)
+    }
+    
+    return pd.DataFrame(data)
+
+def merge_dataframes(dfs: List[pd.DataFrame], merge_type='concat') -> pd.DataFrame:
+    """دمج ملفات متعددة"""
+    if not dfs:
+        return None
+    
+    if merge_type == 'concat':
+        return pd.concat(dfs, ignore_index=True)
+    elif merge_type == 'join':
+        result = dfs[0]
+        for df in dfs[1:]:
+            result = result.merge(df, how='outer', left_index=True, right_index=True)
+        return result
+    else:
+        return pd.concat(dfs, ignore_index=True)
 
 def ai_assistant(df, question):
-    """مساعد FETH الذكي"""
+    """مساعد FETH الذكي المتقدم"""
+    if df is None or df.empty:
+        return "🎯 FETH: محتاج بيانات الأول عشان أساعدك!"
+    
     question = question.lower()
     feth = st.session_state.feth
     
-    if "إجمالي" in question or "total" in question or "sum" in question:
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        if len(numeric_cols) > 0:
-            total = df[numeric_cols[0]].sum()
-            return f"{feth.respond('insight_high', f'الإجمالي: {total:,.0f}')}\n\n💰 الإجمالي: {total:,.0f}"
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    cat_cols = df.select_dtypes(include=['object']).columns
     
-    elif "متوسط" in question or "average" in question:
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
+    # تحليل ذكي للسؤال
+    if any(word in question for word in ["إجمالي", "total", "sum", "مجموع"]):
+        if len(numeric_cols) > 0:
+            col = numeric_cols[0]
+            total = df[col].sum()
+            return f"{feth.respond('insight_high', f'الإجمالي: {total:,.0f}', df)}\n\n💰 الإجمالي: {total:,.0f}"
+    
+    elif any(word in question for word in ["متوسط", "average", "mean"]):
         if len(numeric_cols) > 0:
             avg = df[numeric_cols[0]].mean()
             return f"📊 المتوسط: {avg:,.2f}\n\n{feth.get_signature()}"
     
-    elif "أعلى" in question or "max" in question:
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        cat_cols = df.select_dtypes(include=['object']).columns
+    elif any(word in question for word in ["أعلى", "max", "maximum", "أكبر"]):
         if len(numeric_cols) > 0 and len(cat_cols) > 0:
             best_idx = df[numeric_cols[0]].idxmax()
             best_item = df.loc[best_idx, cat_cols[0]]
             best_value = df[numeric_cols[0]].max()
-            return f"{feth.respond('insight_high', f'{best_item}: {best_value:,.0f}')}\n\n🏆 الأعلى: {best_item} ({best_value:,.0f})"
+            return f"{feth.respond('insight_high', f'{best_item}: {best_value:,.0f}', df)}\n\n🏆 الأعلى: {best_item} ({best_value:,.0f})"
     
-    elif "أقل" in question or "min" in question:
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        cat_cols = df.select_dtypes(include=['object']).columns
+    elif any(word in question for word in ["أقل", "min", "minimum", "أصغر"]):
         if len(numeric_cols) > 0 and len(cat_cols) > 0:
             worst_idx = df[numeric_cols[0]].idxmin()
             worst_item = df.loc[worst_idx, cat_cols[0]]
             worst_value = df[numeric_cols[0]].min()
-            return f"{feth.respond('insight_low', f'{worst_item}: {worst_value:,.0f}')}\n\n📉 الأقل: {worst_item} ({worst_value:,.0f})"
+            return f"{feth.respond('insight_low', f'{worst_item}: {worst_value:,.0f}', df)}\n\n📉 الأقل: {worst_item} ({worst_value:,.0f})"
     
-    elif "عدد" in question or "count" in question:
-        return f"{feth.respond('analysis_ready')}\n\n📋 عدد الصفوف: {len(df):,}"
+    elif any(word in question for word in ["عدد", "count", "كم", "how many"]):
+        return f"{feth.respond('analysis_ready', df=df)}\n\n📋 عدد الصفوف: {len(df):,}\n📊 عدد الأعمدة: {len(df.columns)}"
     
-    elif "ملخص" in question or "summary" in question:
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        report = f"{feth.respond('analysis_ready')}\n\n"
+    elif any(word in question for word in ["ملخص", "summary", "نظرة عامة"]):
+        report = f"{feth.respond('analysis_ready', df=df)}\n\n"
         report += f"📊 ملخص البيانات:\n\n"
         report += f"• الصفوف: {len(df):,}\n"
         report += f"• الأعمدة: {len(df.columns)}\n"
+        report += f"• الأعمدة الرقمية: {len(numeric_cols)}\n"
+        report += f"• الأعمدة النصية: {len(cat_cols)}\n"
         if len(numeric_cols) > 0:
             report += f"• الإجمالي: {df[numeric_cols[0]].sum():,.0f}\n"
             report += f"• المتوسط: {df[numeric_cols[0]].mean():,.2f}\n"
+            report += f"• الأعلى: {df[numeric_cols[0]].max():,.0f}\n"
+            report += f"• الأقل: {df[numeric_cols[0]].min():,.0f}\n"
         return report + f"\n{feth.get_signature()}"
     
+    elif any(word in question for word in ["توقع", "predict", "مستقبل", "future"]):
+        return f"""🔮 {feth.respond('teaching', df=df).replace('خليني أفتحلك النقطة دي ببساطة وذكاء...', 'التوقع يحتاج نموذج تعلم آلي متقدم...')}
+
+📈 لكن FETH يلاحظ:
+* اتجاه البيانات: {"صاعد 📈" if len(numeric_cols) > 0 and df[numeric_cols[0]].iloc[-1] > df[numeric_cols[0]].iloc[0] else "هابط 📉"}
+* التذبذب: {df[numeric_cols[0]].std():.2f if len(numeric_cols) > 0 else "غير متاح"}
+
+{feth.get_signature()}"""
+    
     else:
-        return f"""{feth.respond('teaching')}
+        return f"""{feth.respond('teaching', df=df)}
 
 🤔 جرب تسأل FETH:
 * "ما إجمالي المبيعات؟"
 * "ما المتوسط؟"
 * "أعلى منتج مبيعاً؟"
+* "أقل قيمة؟"
 * "عدد الصفوف؟"
 * "ملخص البيانات؟"
+* "توقع المستقبل؟"
 
 {feth.get_signature()}"""
 
 def generate_pdf_report(df, charts_data=None):
-    """توليد تقرير PDF"""
+    """توليد تقرير PDF متقدم"""
     class PDF(FPDF):
         def header(self):
-            self.set_font('Arial', 'B', 16)
-            self.cell(0, 10, 'Data Beast Pro - FETH Report', 0, 1, 'C')
+            self.set_font('Arial', 'B', 20)
+            self.set_text_color(52, 152, 219)
+            self.cell(0, 15, 'Smart Analyst The Beast', 0, 1, 'C')
+            self.set_font('Arial', '', 12)
+            self.set_text_color(100, 100, 100)
+            self.cell(0, 10, 'FETH Intelligence Report', 0, 1, 'C')
             self.ln(10)
         
         def footer(self):
             self.set_y(-15)
             self.set_font('Arial', 'I', 8)
-            self.cell(0, 10, f'FETH | بيفتح البيانات 🎯 | Page {self.page_no()}', 0, 0, 'C')
+            self.set_text_color(128, 128, 128)
+            self.cell(0, 10, f'Smart Analyst The Beast | FETH AI | Page {self.page_no()}', 0, 0, 'C')
     
     pdf = PDF()
     pdf.add_page()
-    pdf.set_font('Arial', '', 12)
+    pdf.set_font('Arial', '', 11)
     
-    pdf.cell(0, 10, f'Data Summary by FETH', 0, 1)
-    pdf.ln(5)
-    pdf.cell(0, 10, f'Rows: {len(df)}', 0, 1)
-    pdf.cell(0, 10, f'Columns: {len(df.columns)}', 0, 1)
+    # Summary
+    pdf.set_font('Arial', 'B', 14)
+    pdf.cell(0, 10, 'Executive Summary', 0, 1)
+    pdf.set_font('Arial', '', 11)
+    
+    pdf.cell(0, 8, f'Total Rows: {len(df):,}', 0, 1)
+    pdf.cell(0, 8, f'Total Columns: {len(df.columns)}', 0, 1)
     
     numeric_cols = df.select_dtypes(include=[np.number]).columns
     if len(numeric_cols) > 0:
         pdf.ln(5)
-        pdf.cell(0, 10, f'Total: {df[numeric_cols[0]].sum():,.0f}', 0, 1)
-        pdf.cell(0, 10, f'Average: {df[numeric_cols[0]].mean():,.2f}', 0, 1)
+        pdf.set_font('Arial', 'B', 14)
+        pdf.cell(0, 10, 'Key Metrics', 0, 1)
+        pdf.set_font('Arial', '', 11)
+        pdf.cell(0, 8, f'Total: {df[numeric_cols[0]].sum():,.0f}', 0, 1)
+        pdf.cell(0, 8, f'Average: {df[numeric_cols[0]].mean():,.2f}', 0, 1)
+        pdf.cell(0, 8, f'Maximum: {df[numeric_cols[0]].max():,.0f}', 0, 1)
+        pdf.cell(0, 8, f'Minimum: {df[numeric_cols[0]].min():,.0f}', 0, 1)
     
     return pdf.output(dest='S').encode('latin-1')
 
 def apply_excel_formula(df, formula, target_col):
-    """تطبيق دوال Excel"""
+    """تطبيق دوال Excel متقدمة"""
     try:
+        formula = formula.strip()
         if formula.startswith('='):
             formula = formula[1:]
         
-        if formula.upper().startswith('SUM('):
-            col = formula[4:-1]
+        formula_upper = formula.upper()
+        
+        if formula_upper.startswith('SUM('):
+            col = formula[4:-1].strip()
             return df[col].sum()
         
-        elif formula.upper().startswith('AVERAGE('):
-            col = formula[8:-1]
+        elif formula_upper.startswith('AVERAGE(') or formula_upper.startswith('AVG('):
+            col = formula[8:-1].strip() if formula_upper.startswith('AVERAGE(') else formula[4:-1].strip()
             return df[col].mean()
         
-        elif formula.upper().startswith('MAX('):
-            col = formula[4:-1]
+        elif formula_upper.startswith('MAX('):
+            col = formula[4:-1].strip()
             return df[col].max()
         
-        elif formula.upper().startswith('MIN('):
-            col = formula[4:-1]
+        elif formula_upper.startswith('MIN('):
+            col = formula[4:-1].strip()
             return df[col].min()
         
-        elif formula.upper().startswith('COUNT('):
-            col = formula[6:-1]
+        elif formula_upper.startswith('COUNT('):
+            col = formula[6:-1].strip()
             return df[col].count()
         
-        elif formula.upper().startswith('IF('):
+        elif formula_upper.startswith('COUNTA('):
+            col = formula[7:-1].strip()
+            return df[col].notna().sum()
+        
+        elif formula_upper.startswith('IF('):
             parts = formula[3:-1].split(',')
-            if len(parts) == 3:
+            if len(parts) >= 2:
                 condition = parts[0].strip()
-                true_val = parts[1].strip()
-                false_val = parts[2].strip()
+                true_val = parts[1].strip() if len(parts) > 1 else "Yes"
+                false_val = parts[2].strip() if len(parts) > 2 else "No"
                 
+                # Parse simple conditions
                 if '>' in condition:
-                    col, val = condition.split('>')
+                    col, val = condition.split('>', 1)
                     col = col.strip()
                     val = float(val.strip())
-                    return df.apply(lambda row: true_val if row[col] > val else false_val, axis=1)
+                    return df.apply(lambda row: true_val if pd.notna(row.get(col)) and row.get(col) > val else false_val, axis=1)
+                elif '<' in condition:
+                    col, val = condition.split('<', 1)
+                    col = col.strip()
+                    val = float(val.strip())
+                    return df.apply(lambda row: true_val if pd.notna(row.get(col)) and row.get(col) < val else false_val, axis=1)
+                elif '=' in condition:
+                    col, val = condition.split('=', 1)
+                    col = col.strip()
+                    val = val.strip().strip('"\'')
+                    return df.apply(lambda row: true_val if str(row.get(col)) == val else false_val, axis=1)
         
-        elif formula.upper().startswith('VLOOKUP('):
-            return "VLOOKUP يحتاج جدول مرجعي"
+        elif formula_upper.startswith('VLOOKUP('):
+            return "🔍 VLOOKUP: استخدم دمج الجداول من القائمة"
+        
+        elif formula_upper.startswith('CONCATENATE(') or formula_upper.startswith('CONCAT('):
+            cols = formula[formula.find('(')+1:-1].split(',')
+            cols = [c.strip() for c in cols]
+            return df.apply(lambda row: ' '.join([str(row.get(c, '')) for c in cols if pd.notna(row.get(c))]), axis=1)
         
         else:
-            return "FETH: الصيغة مش واضحة، جرب دالة تانية"
+            return "❌ FETH: الصيغة مش واضحة. جرب: SUM, AVERAGE, MAX, MIN, COUNT, IF"
     
     except Exception as e:
-        return f"FETH لاحظ خطأ: {str(e)}"
+        return f"⚠️ FETH لاحظ خطأ: {str(e)}"
 
-# ======== Sidebar مع FETH ========
-with st.sidebar:
-    # FETH Box
-    st.markdown("""
-    <div class='feth-box'>
-        <h2 style='margin:0; font-size:28px;'>🎯 FETH</h2>
-        <p style='font-size:14px; margin:5px 0; opacity:0.9;'>بيفتح البيانات</p>
-        <div style='width:60px; height:3px; background:white; margin:10px auto; border-radius:2px;'></div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # رسالة ترحيب من FETH
-    if not st.session_state.feth_welcomed:
-        st.info(st.session_state.feth.respond('welcome'))
-        st.session_state.feth_welcomed = True
-    
-    st.title(t('title'))
-    
-    if st.button("⚙️ " + t('settings'), key='btn_settings'):
-        st.session_state.page = 'settings'
-        st.rerun()
-    
-    st.write("---")
-    
-    menu_options = [t('home'), t('ocr'), t('upload'), t('cleaner'), t('excel'), t('powerbi'), t('sql'), t('ai'), t('export')]
-    menu_keys = ['home', 'ocr', 'upload', 'cleaner', 'excel', 'powerbi', 'sql', 'ai', 'export']
-    
-    for i, (option, key) in enumerate(zip(menu_options, menu_keys)):
-        if st.button(option, key=f'menu_{key}'):
-            st.session_state.page = key
-            st.rerun()
-    
-    st.write("---")
-    
-    # أدوات سريعة
-    st.markdown("### ⚡ " + ("أدوات سريعة" if st.session_state.language == 'ar' else "Quick Tools"))
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        if st.button(t('sample'), key='btn_sample'):
-            st.session_state.df = generate_sample_data()
-            st.success(st.session_state.feth.respond('celebration'))
-            st.rerun()
-    
-    with col2:
-        if st.button(t('clear'), key='btn_clear'):
-            st.session_state.df = None
-            st.session_state.cleaning_history = []
-            st.info("🎯 FETH: جاهز نبدأ من جديد!")
-            st.rerun()
-    
-    # اقتراحات FETH الذكية
-    st.write("---")
-    st.markdown("### 💡 " + ("FETH يقترح" if st.session_state.language == 'ar' else "FETH Suggests"))
-    
-    current_page = st.session_state.page
-    suggestions = st.session_state.feth.suggest_next(current_page)
-    
-    for suggestion in suggestions[:2]:  # اقتراحين بس
-        if st.button(suggestion, key=f"feth_sug_{suggestion}"):
-            if "رفع" in suggestion or "Upload" in suggestion:
-                st.session_state.page = 'upload'
-            elif "نظف" in suggestion or "Clean" in suggestion:
-                st.session_state.page = 'cleaner'
-            elif "تحليل" in suggestion or "Power" in suggestion:
-                st.session_state.page = 'powerbi'
-            elif "Excel" in suggestion or "صيغ" in suggestion:
-                st.session_state.page = 'excel'
-            elif "سأل" in suggestion or "Ask" in suggestion:
-                st.session_state.page = 'ai'
-            elif "تجريبية" in suggestion or "Sample" in suggestion:
-                st.session_state.df = generate_sample_data()
-            st.rerun()
-    
-    st.write("---")
-    st.caption(t('signature'))
+# ======== Sidebar متجاوب مع FETH ========
+def render_sidebar():
+    with st.sidebar:
+        # Logo and Branding
+        st.markdown(f"""
+        <div class='feth-box'>
+            <img src='{BeastConfig.LOGO_URL}' style='width:80px; height:80px; border-radius:50%; margin-bottom:10px;'>
+            <h2 style='margin:0; font-size:24px;'>🦁 Smart Analyst</h2>
+            <h3 style='margin:5px 0; font-size:20px; color:#FFD700;'>The Beast</h3>
+            <p style='font-size:14px; margin:5px 0; opacity:0.9;'>🎯 FETH AI v2.0</p>
+            <div style='width:60px; height:3px; background:white; margin:10px auto; border-radius:2px;'></div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # FETH Welcome
+        feth = st.session_state.feth
+        if not st.session_state.feth_welcomed:
+            st.info(f"🎯 {feth.respond('welcome', df=st.session_state.df)}")
+            st.session_state.feth_welcomed = True
+        
+        # User Status
+        if st.session_state.user:
+            st.success(f"👤 {st.session_state.user.email}")
+            if st.button("🚪 " + t('logout')):
+                st.session_state.user = None
+                st.session_state.session = None
+                st.rerun()
+        else:
+            st.warning("🔐 " + ("غير مسجل" if st.session_state.language == 'ar' else "Not logged in"))
+            if st.button("🔐 " + t('login')):
+                st.session_state.page = 'login'
+                st.rerun()
+        
+        st.write("---")
+        
+        # Navigation
+        st.title(t('title'))
+        
+        menu_items = [
+            (t('home'), 'home'),
+            (t('login'), 'login'),
+            (t('upload'), 'upload'),
+            (t('multi_upload'), 'multi_upload'),
+            (t('cleaner'), 'cleaner'),
+            (t('excel'), 'excel'),
+            (t('powerbi'), 'powerbi'),
+            (t('sql'), 'sql'),
+            (t('ai'), 'ai'),
+            (t('cloud'), 'cloud'),
+            (t('export'), 'export'),
+            (t('settings'), 'settings')
+        ]
+        
+        for label, key in menu_items:
+            if st.button(label, key=f'menu_{key}'):
+                st.session_state.page = key
+                st.rerun()
+        
+        st.write("---")
+        
+        # Quick Tools
+        st.markdown("### ⚡ " + ("أدوات سريعة" if st.session_state.language == 'ar' else "Quick Tools"))
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button(t('sample'), key='btn_sample'):
+                st.session_state.df = generate_sample_data(500)  # بيانات أكبر
+                st.success(f"🎯 {feth.respond('celebration')}")
+                st.rerun()
+        
+        with col2:
+            if st.button(t('clear'), key='btn_clear'):
+                st.session_state.df = None
+                st.session_state.dfs = []
+                st.session_state.cleaning_history = []
+                st.info("🎯 FETH: جاهز نبدأ من جديد!")
+                st.rerun()
+        
+        # FETH Suggestions
+        st.write("---")
+        st.markdown("### 💡 " + ("FETH يقترح" if st.session_state.language == 'ar' else "FETH Suggests"))
+        
+        suggestions = feth.suggest_next(st.session_state.page)
+        for suggestion in suggestions[:3]:
+            if st.button(suggestion, key=f"feth_sug_{hash(suggestion)}"):
+                # Parse suggestion
+                if any(x in suggestion for x in ["رفع", "Upload"]):
+                    st.session_state.page = 'upload'
+                elif any(x in suggestion for x in ["نظف", "Clean"]):
+                    st.session_state.page = 'cleaner'
+                elif any(x in suggestion for x in ["تحليل", "Power"]):
+                    st.session_state.page = 'powerbi'
+                elif any(x in suggestion for x in ["Excel", "صيغ"]):
+                    st.session_state.page = 'excel'
+                elif any(x in suggestion for x in ["سأل", "Ask"]):
+                    st.session_state.page = 'ai'
+                elif any(x in suggestion for x in ["تجريبية", "Sample"]):
+                    st.session_state.df = generate_sample_data(500)
+                elif any(x in suggestion for x in ["سحابة", "Cloud"]):
+                    st.session_state.page = 'cloud'
+                elif any(x in suggestion for x in ["دخول", "Login"]):
+                    st.session_state.page = 'login'
+                st.rerun()
+        
+        st.write("---")
+        st.caption(t('signature'))
 
 # ======== الصفحات ========
-page = st.session_state.page
-df = st.session_state.df
-feth = st.session_state.feth
-
-# --- الإعدادات ---
-if page == 'settings':
-    st.header("⚙️ " + t('settings'))
+def render_home():
+    """الصفحة الرئيسية المتجاوبة"""
+    feth = st.session_state.feth
+    df = st.session_state.df
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("🌐 اللغة / Language")
-        lang = st.radio("اختر / Choose:", ['العربية', 'English'], 
-                       index=0 if st.session_state.language == 'ar' else 1)
-        if lang == 'العربية':
-            st.session_state.language = 'ar'
-        else:
-            st.session_state.language = 'en'
-    
-    with col2:
-        st.subheader("🎨 الثيم / Theme")
-        theme = st.radio("اختر / Choose:", 
-                        ['داكن / Dark', 'فاتح / Light'],
-                        index=0 if st.session_state.dark_mode else 1)
-        st.session_state.dark_mode = (theme == 'داكن / Dark')
-    
-    if st.button("💾 " + t('save'), type='primary'):
-        st.success("🎯 FETH: تم الحفظ!")
-        st.session_state.page = 'home'
-        st.rerun()
-
-# --- الرئيسية مع FETH ---
-elif page == 'home':
-    st.markdown(f"<h1 style='text-align:center; color:#3498DB;'>🎯 FETH | Data Beast Pro</h1>", unsafe_allow_html=True)
-    st.markdown(f"<p style='text-align:center; color:gray; font-size:18px;'>"
-                f"{feth.respond('welcome')}</p>", unsafe_allow_html=True)
+    # Hero Section
+    st.markdown(f"""
+    <div class='beast-header'>
+        <h1 class='beast-title'>🦁 Smart Analyst The Beast</h1>
+        <p class='beast-subtitle'>{feth.respond('welcome', df=df)}</p>
+    </div>
+    """, unsafe_allow_html=True)
     
     if df is not None:
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         
-        # FETH يحلل البيانات
-        st.success(f"🎯 {feth.respond('analysis_ready')}")
+        # FETH Analysis
+        st.success(f"🎯 {feth.respond('analysis_ready', df=df)}")
         
-        # مؤشرات سريعة
+        # Metrics Grid - Responsive
         cols = st.columns(4)
-        cols[0].metric("📊 الصفوف", len(df))
-        cols[1].metric("📋 الأعمدة", len(df.columns))
+        metrics = [
+            ("📊 الصفوف", len(df)),
+            ("📋 الأعمدة", len(df.columns)),
+            ("💾 الحجم", f"{df.memory_usage(deep=True).sum()/1024:.1f} KB"),
+            ("🔢 الرقمية", len(numeric_cols))
+        ]
         
+        for i, (label, value) in enumerate(metrics):
+            with cols[i]:
+                st.metric(label, value)
+        
+        # Smart Insights
         if len(numeric_cols) > 0:
             total = df[numeric_cols[0]].sum()
             avg = df[numeric_cols[0]].mean()
             
-            cols[2].metric("💰 الإجمالي", f"{total:,.0f}")
-            cols[3].metric("📈 المتوسط", f"{avg:,.0f}")
-            
-            # FETH يعلق على الأرقام
             if total > 100000:
                 st.balloons()
-                st.success(f"🎯 {feth.respond('celebration')}")
+                st.success(f"🎯 {feth.respond('insight_high', f'إجمالي ضخم: {total:,.0f}', df)}")
+            
+            # Charts Preview
+            st.write("---")
+            st.subheader("📈 نظرة سريعة")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                fig = px.histogram(df, x=numeric_cols[0], title="توزيع القيم")
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                if len(df) > 10:
+                    fig2 = px.line(df.head(50), y=numeric_cols[0], title="أول 50 قيمة")
+                    st.plotly_chart(fig2, use_container_width=True)
         
+        # Data Preview
+        st.write("---")
+        st.subheader("👁️ معاينة البيانات")
         st.dataframe(df.head(10), use_container_width=True)
         
-        # FETH يقترح الخطوة الجاية
+        # Next Steps
         st.write("---")
-        st.markdown(f"### 🎯 {feth.respond('teaching').replace('خليني أفتحلك النقطة دي ببساطة...', 'الخطوة الجاية؟')}")
+        st.markdown(f"### 🎯 {feth.respond('teaching', df=df).replace('خليني أفتحلك النقطة دي ببساطة وذكاء...', 'الخطوة الجاية؟')}")
         
         next_steps = feth.suggest_next('home')
         step_cols = st.columns(len(next_steps))
         for i, step in enumerate(next_steps):
             with step_cols[i]:
-                if st.button(step, key=f"next_{i}"):
-                    if "رفع" in step:
+                if st.button(step, key=f"home_next_{i}"):
+                    # Handle navigation
+                    if any(x in step for x in ["رفع", "Upload"]):
                         st.session_state.page = 'upload'
-                    elif "تجريبية" in step:
-                        st.session_state.df = generate_sample_data()
-                    elif "اسأل" in step:
+                    elif any(x in step for x in ["تجريبية", "Sample"]):
+                        st.session_state.df = generate_sample_data(500)
+                    elif any(x in step for x in ["اسأل", "Ask"]):
                         st.session_state.page = 'ai'
+                    elif any(x in step for x in ["دخول", "Login"]):
+                        st.session_state.page = 'login'
                     st.rerun()
     
     else:
-        # FETH يشجع على البدء
-        st.info(f"🎯 {feth.respond('welcome')}")
+        # Empty State
+        st.info(f"🎯 {feth.respond('welcome', df=None)}")
         
-        col1, col2 = st.columns(2)
+        # CTA Buttons
+        col1, col2, col3 = st.columns(3)
+        
         with col1:
-            if st.button("📊 جرب البيانات التجريبية", type='primary'):
-                st.session_state.df = generate_sample_data()
+            if st.button("📊 بيانات تجريبية", type='primary', use_container_width=True):
+                st.session_state.df = generate_sample_data(500)
                 st.rerun()
+        
         with col2:
-            if st.button("📥 ارفع ملفك الخاص"):
+            if st.button("📥 ارفع ملفك", use_container_width=True):
                 st.session_state.page = 'upload'
                 st.rerun()
-
-# --- OCR ---
-elif page == 'ocr':
-    st.header("👁️ OCR Vision | FETH")
-    
-    uploaded = st.file_uploader("📸 ارفع صورة:", ['jpg', 'jpeg', 'png'])
-    
-    if uploaded:
-        from PIL import Image
-        image = Image.open(uploaded)
-        st.image(image, use_column_width=True)
         
-        with st.spinner("🎯 FETH بيفتح الصورة..."):
-            import time
-            time.sleep(2)
-            
-            ocr_data = {
-                'المنتج': ['لابتوب', 'موبايل', 'تابلت'],
-                'السعر': [12000, 25000, 8000],
-                'الكمية': [2, 1, 3]
-            }
-            df_ocr = pd.DataFrame(ocr_data)
-            
-            st.success(f"🎯 {feth.respond('analysis_ready')}")
-            st.dataframe(df_ocr)
-            
-            if st.button("📊 استخدم البيانات", type='primary'):
-                st.session_state.df = df_ocr
-                st.success(f"🎯 {feth.respond('celebration')}")
+        with col3:
+            if st.button("🔐 سجل دخول", use_container_width=True):
+                st.session_state.page = 'login'
+                st.rerun()
+        
+        # Features Showcase
+        st.write("---")
+        st.subheader("🚀 مميزات الوحش")
+        
+        feat_cols = st.columns(4)
+        features = [
+            ("🤖", "FETH AI", "محلل ذكي يفهم بياناتك"),
+            ("☁️", "سحابة", "احفظ ووصل من أي مكان"),
+            ("📱", "موبايل", "تصميم يتكيف مع كل شاشة"),
+            ("🔐", "أمان", "حماية كاملة لبياناتك")
+        ]
+        
+        for i, (icon, title, desc) in enumerate(features):
+            with feat_cols[i]:
+                st.markdown(f"""
+                <div style='text-align:center; padding:20px; background:#1a1a2e; border-radius:15px;'>
+                    <div style='font-size:40px;'>{icon}</div>
+                    <h4 style='color:#3498DB;'>{title}</h4>
+                    <p style='font-size:12px; color:gray;'>{desc}</p>
+                </div>
+                """, unsafe_allow_html=True)
 
-# --- رفع بيانات ---
-elif page == 'upload':
-    st.header("📥 " + t('upload') + " | FETH")
+def render_login():
+    """صفحة تسجيل الدخول"""
+    st.markdown("""
+    <div class='beast-header'>
+        <h1 class='beast-title'>🔐 تسجيل الدخول</h1>
+        <p class='beast-subtitle'>Smart Analyst The Beast Cloud</p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    st.info(f"🎯 {feth.respond('support').replace('ولا يهمك... خلينا نمشي خطوة خطوة 🤝', 'ارفع ملفك وهفتحهولك')}!")
+    supabase_mgr = st.session_state.supabase
     
-    uploaded = st.file_uploader("اختر ملف:", ['csv', 'xlsx', 'xls'])
+    if not supabase_mgr.connected:
+        st.error("⚠️ Supabase غير متصل. تأكد من إعدادات الـ API.")
+        st.info("💡 لكن ممكن تستخدم التطبيق في الوضع المحلي بدون تسجيل.")
+        if st.button("← الرجوع للرئيسية"):
+            st.session_state.page = 'home'
+            st.rerun()
+        return
+    
+    tab1, tab2 = st.tabs(["🔐 تسجيل الدخول", "📝 إنشاء حساب"])
+    
+    with tab1:
+        with st.form("login_form"):
+            email = st.text_input("📧 البريد الإلكتروني")
+            password = st.text_input("🔑 كلمة المرور", type="password")
+            submit = st.form_submit_button("دخول", use_container_width=True)
+            
+            if submit:
+                with st.spinner("🎯 FETH بيتصل بالسحابة..."):
+                    result = supabase_mgr.sign_in(email, password)
+                    if "error" in result:
+                        st.error(f"❌ {result['error']}")
+                    else:
+                        st.session_state.user = result['user']
+                        st.session_state.session = result['session']
+                        st.success("🎉 تم تسجيل الدخول!")
+                        st.balloons()
+                        time.sleep(1)
+                        st.session_state.page = 'home'
+                        st.rerun()
+    
+    with tab2:
+        with st.form("signup_form"):
+            new_email = st.text_input("📧 البريد الإلكتروني")
+            new_password = st.text_input("🔑 كلمة المرور", type="password")
+            confirm_password = st.text_input("🔑 تأكيد كلمة المرور", type="password")
+            submit = st.form_submit_button("إنشاء حساب", use_container_width=True)
+            
+            if submit:
+                if new_password != confirm_password:
+                    st.error("❌ كلمتا المرور غير متطابقتين")
+                elif len(new_password) < 6:
+                    st.error("❌ كلمة المرور قصيرة جداً (6 أحرف على الأقل)")
+                else:
+                    with st.spinner("🎯 FETH بينشئ الحساب..."):
+                        result = supabase_mgr.sign_up(new_email, new_password)
+                        if "error" in result:
+                            st.error(f"❌ {result['error']}")
+                        else:
+                            st.success("✅ تم إنشاء الحساب! افحص بريدك للتفعيل.")
+
+def render_upload():
+    """رفع ملف واحد"""
+    st.header("📥 رفع بيانات | FETH")
+    
+    feth = st.session_state.feth
+    
+    st.info(f"🎯 {feth.respond('support', df=st.session_state.df).replace('ولا يهمك... خلينا نمشي خطوة خطوة', 'ارفع ملفك وهفتحهولك')}!")
+    
+    uploaded = st.file_uploader("اختر ملف:", ['csv', 'xlsx', 'xls'], key='single_upload')
     
     if uploaded:
         try:
-            if uploaded.name.endswith('.csv'):
-                df_new = pd.read_csv(uploaded)
-            else:
-                df_new = pd.read_excel(uploaded)
-            
-            st.session_state.df = df_new
-            st.success(f"🎯 {feth.respond('upload_success', f'{len(df_new):,} صف')}")
-            st.dataframe(df_new.head())
-            
-            st.write("---")
-            st.markdown(f"### 💡 {feth.respond('teaching').replace('خليني أفتحلك النقطة دي ببساطة...', 'نعمل إيه دلوقتي؟')}")
-            
-            next_steps = feth.suggest_next('upload')
-            cols = st.columns(len(next_steps))
-            for i, step in enumerate(next_steps):
-                with cols[i]:
-                    if st.button(step, key=f"upload_next_{i}"):
-                        if "نظف" in step:
-                            st.session_state.page = 'cleaner'
-                        elif "Power" in step:
-                            st.session_state.page = 'powerbi'
-                        elif "FETH" in step:
-                            st.session_state.page = 'ai'
-                        st.rerun()
+            with st.spinner("🎯 FETH بيفتح الملف..."):
+                if uploaded.name.endswith('.csv'):
+                    df_new = pd.read_csv(uploaded)
+                else:
+                    df_new = pd.read_excel(uploaded)
+                
+                st.session_state.df = df_new
+                st.session_state.uploaded_files_count += 1
+                
+                insight = f"{len(df_new):,} صف × {len(df_new.columns)} عمود"
+                st.success(f"🎯 {feth.respond('upload_success', insight, df_new)}")
+                
+                st.dataframe(df_new.head(), use_container_width=True)
+                
+                # Save to cloud if logged in
+                if st.session_state.user and st.session_state.supabase.connected:
+                    if st.button("☁️ احفظ في السحابة", type='primary'):
+                        result = st.session_state.supabase.save_dataframe(
+                            st.session_state.user.id,
+                            uploaded.name,
+                            df_new
+                        )
+                        if "error" in result:
+                            st.error(f"❌ {result['error']}")
+                        else:
+                            st.success(f"🎯 {feth.respond('cloud_sync')}")
+                
+                # Next steps
+                st.write("---")
+                next_steps = feth.suggest_next('upload')
+                cols = st.columns(len(next_steps))
+                for i, step in enumerate(next_steps):
+                    with cols[i]:
+                        if st.button(step, key=f"upload_next_{i}"):
+                            if any(x in step for x in ["نظف", "Clean"]):
+                                st.session_state.page = 'cleaner'
+                            elif any(x in step for x in ["Power"]):
+                                st.session_state.page = 'powerbi'
+                            elif any(x in step for x in ["FETH", "Ask"]):
+                                st.session_state.page = 'ai'
+                            elif any(x in step for x in ["سحابة", "Cloud"]):
+                                st.session_state.page = 'cloud'
+                            st.rerun()
                         
         except Exception as e:
             st.error(f"🎯 {feth.respond('error')}: {str(e)}")
 
-# --- منظف البيانات ---
-elif page == 'cleaner':
-    st.header("🧹 " + t('cleaner') + " | FETH")
+def render_multi_upload():
+    """رفع ملفات متعددة ودمجها"""
+    st.header("📁 رفع متعدد ودمج | FETH")
+    
+    feth = st.session_state.feth
+    
+    st.info("🎯 ارفع ملفات متعددة وFETH يدمجهم لك!")
+    
+    uploaded_files = st.file_uploader(
+        "اختر ملفات متعددة:",
+        ['csv', 'xlsx', 'xls'],
+        accept_multiple_files=True,
+        key='multi_upload'
+    )
+    
+    if uploaded_files:
+        st.success(f"📦 استلمت {len(uploaded_files)} ملفات")
+        
+        # Preview all files
+        dfs = []
+        for i, file in enumerate(uploaded_files):
+            with st.expander(f"📄 {file.name}"):
+                try:
+                    if file.name.endswith('.csv'):
+                        df_temp = pd.read_csv(file)
+                    else:
+                        df_temp = pd.read_excel(file)
+                    
+                    dfs.append(df_temp)
+                    st.write(f"الصفوف: {len(df_temp):,} | الأعمدة: {len(df_temp.columns)}")
+                    st.dataframe(df_temp.head(3), use_container_width=True)
+                    
+                except Exception as e:
+                    st.error(f"❌ خطأ في {file.name}: {e}")
+        
+        if dfs:
+            st.write("---")
+            st.subheader("🔗 خيارات الدمج")
+            
+            merge_type = st.radio(
+                "طريقة الدمج:",
+                ["concat", "join"],
+                format_func=lambda x: "دمج عمودي (Concat)" if x == "concat" else "دمج أفقي (Join)"
+            )
+            
+            if st.button("🔄 دمج الملفات", type='primary'):
+                with st.spinner("🎯 FETH بيدمج..."):
+                    merged_df = merge_dataframes(dfs, merge_type)
+                    if merged_df is not None:
+                        st.session_state.df = merged_df
+                        st.session_state.dfs = dfs
+                        
+                        st.success(f"""
+                        🎉 تم الدمج بنجاح!
+                        📊 إجمالي الصفوف: {len(merged_df):,}
+                        📋 إجمالي الأعمدة: {len(merged_df.columns)}
+                        """)
+                        
+                        st.dataframe(merged_df.head(), use_container_width=True)
+                        
+                        if st.button("→ الاستمرار للتحليل"):
+                            st.session_state.page = 'powerbi'
+                            st.rerun()
+
+def render_cleaner():
+    """منظف البيانات المتقدم"""
+    st.header("🧹 منظف البيانات | FETH")
+    
+    df = st.session_state.df
+    feth = st.session_state.feth
     
     if df is not None:
-        st.info(f"🎯 {feth.respond('analysis_ready')}")
+        st.info(f"🎯 {feth.respond('analysis_ready', df=df)}")
         
+        # Metrics
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("الصفوف", len(df))
         col2.metric("الأعمدة", len(df.columns))
         empty_count = int(df.isnull().sum().sum())
         dup_count = int(df.duplicated().sum())
-        col3.metric("الفارغ", empty_count)
-        col4.metric("التكرار", dup_count)
+        col3.metric("الفارغ", empty_count, delta=-empty_count if empty_count > 0 else None)
+        col4.metric("التكرار", dup_count, delta=-dup_count if dup_count > 0 else None)
         
         if empty_count > 0:
-            st.warning(f"🎯 {feth.respond('insight_low', f'{empty_count} قيمة فارغة')}")
+            st.warning(f"🎯 {feth.respond('insight_low', f'{empty_count} قيمة فارغة', df)}")
         
+        # Cleaning Tools
         st.write("---")
-        st.subheader("🔧 أدوات التنظيف")
+        st.subheader("🔧 أدوات التنظيف الذكية")
         
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            if st.button("🗑️ حذف الفارغ", key='drop_na'):
+            if st.button("🗑️ حذف الفارغ", use_container_width=True):
                 st.session_state.df = df.dropna()
-                st.session_state.cleaning_history.append("حذف القيم الفارغة")
+                st.session_state.cleaning_history.append(f"حذف {empty_count} قيمة فارغة")
                 st.success(f"🎯 {feth.respond('celebration')}")
                 st.rerun()
         
         with col2:
-            if st.button("📋 حذف التكرار", key='drop_dup'):
+            if st.button("📋 حذف التكرار", use_container_width=True):
                 st.session_state.df = df.drop_duplicates()
-                st.session_state.cleaning_history.append("حذف التكرارات")
+                st.session_state.cleaning_history.append(f"حذف {dup_count} صف مكرر")
                 st.success(f"🎯 {feth.respond('celebration')}")
                 st.rerun()
         
         with col3:
-            if st.button("🔤 تنظيف النص", key='clean_text'):
+            if st.button("🔤 تنظيف النص", use_container_width=True):
                 df_clean = df.copy()
                 for col in df_clean.select_dtypes(include=['object']):
                     df_clean[col] = df_clean[col].str.strip().str.title()
@@ -649,284 +1309,45 @@ elif page == 'cleaner':
                 st.success(f"🎯 {feth.respond('celebration')}")
                 st.rerun()
         
+        with col4:
+            if st.button("🔄 إعادة تعيين", use_container_width=True):
+                st.session_state.cleaning_history = []
+                st.info("🔄 تم إعادة تعيين السجل")
+                st.rerun()
+        
+        # Advanced Cleaning
+        with st.expander("🔧 أدوات متقدمة"):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                numeric_col = st.selectbox("عمود رقمي:", df.select_dtypes(include=[np.number]).columns)
+                if st.button("📊 إزالة القيم المتطرفة (Outliers)"):
+                    Q1 = df[numeric_col].quantile(0.25)
+                    Q3 = df[numeric_col].quantile(0.75)
+                    IQR = Q3 - Q1
+                    df_clean = df[~((df[numeric_col] < (Q1 - 1.5 * IQR)) | (df[numeric_col] > (Q3 + 1.5 * IQR)))]
+                    st.session_state.df = df_clean
+                    st.success(f"🎯 تمت إزالة {len(df) - len(df_clean)} قيمة متطرفة")
+                    st.rerun()
+            
+            with col2:
+                text_col = st.selectbox("عمود نصي:", df.select_dtypes(include=['object']).columns)
+                if st.button("🔍 تصحيح الأخطاء الإملائية"):
+                    st.info("🔮 FETH: ميزة التصحيح تحتاج مكتبة إضافية (textblob)")
+        
+        # History
         if st.session_state.cleaning_history:
             with st.expander("📜 سجل التنظيف"):
                 for i, action in enumerate(st.session_state.cleaning_history, 1):
                     st.write(f"{i}. {action}")
         
-        st.dataframe(df, use_container_width=True)
+        st.write("---")
+        st.dataframe(df, use_container_width=True, height=400)
     else:
-        st.error(f"🎯 {feth.respond('support').replace('ولا يهمك... خلينا نمشي خطوة خطوة 🤝', 'محتاج بيانات الأول! ارفع ملف')} ❌")
+        st.error(f"🎯 {feth.respond('support').replace('ولا يهمك... خلينا نمشي خطوة خطوة', 'محتاج بيانات الأول! ارفع ملف')} ❌")
 
-# --- Excel Pro ---
-elif page == 'excel':
+def render_excel():
+    """Excel Pro متقدم"""
     st.header("📊 Excel Pro | FETH")
     
-    if df is not None:
-        st.info(f"🎯 {feth.respond('analysis_ready')}")
-        
-        # شريط الأدوات
-        st.subheader("🧰 شريط الأدوات")
-        
-        col1, col2, col3, col4, col5 = st.columns(5)
-        
-        with col1:
-            if st.button("➕ صف جديد"):
-                new_row = pd.DataFrame([{col: None for col in df.columns}])
-                st.session_state.df = pd.concat([df, new_row], ignore_index=True)
-                st.rerun()
-        
-        with col2:
-            if st.button("➕ عمود جديد"):
-                col_name = f"عمود_{len(df.columns)+1}"
-                st.session_state.df[col_name] = None
-                st.rerun()
-        
-        with col3:
-            if st.button("🗑️ حذف صف"):
-                if len(df) > 0:
-                    st.session_state.df = df.iloc[:-1]
-                    st.rerun()
-        
-        with col4:
-            if st.button("🔍 بحث"):
-                st.session_state.show_search = True
-        
-        with col5:
-            if st.button("📊 Pivot Table"):
-                st.session_state.show_pivot = True
-        
-        # شريط الصيغ
-        st.write("---")
-        st.subheader("📝 شريط الصيغ (Formula Bar)")
-        
-        formula_col1, formula_col2 = st.columns([3, 1])
-        
-        with formula_col1:
-            formula = st.text_input("= اكتب الصيغة:", 
-                                   placeholder="مثال: =SUM(المبيعات) أو =AVERAGE(السعر)",
-                                   key='formula_input')
-        
-        with formula_col2:
-            target_col = st.selectbox("في عمود:", df.columns)
-        
-        if st.button("▶️ تطبيق الصيغة", type='primary'):
-            result = apply_excel_formula(df, formula, target_col)
-            if isinstance(result, pd.Series):
-                st.session_state.df[target_col] = result
-                st.success(f"🎯 {feth.respond('celebration')}")
-            else:
-                st.info(f"🎯 FETH: النتيجة = {result}")
-            st.rerun()
-        
-        # دليل الدوال
-        with st.expander("📚 دليل دوال Excel"):
-            st.code("""
-=SUM(عمود)        → مجموع
-=AVERAGE(عمود)    → متوسط  
-=MAX(عمود)        → أقصى قيمة
-=MIN(عمود)        → أدنى قيمة
-=COUNT(عمود)      → عدد القيم
-=IF(شرط, صح, خطأ) → شرط منطقي
-            """)
-        
-        # الجدول
-        st.write("---")
-        st.subheader("📋 ورقة العمل")
-        
-        edited = st.data_editor(df, num_rows="dynamic", use_container_width=True, height=400)
-        
-        if st.button("💾 حفظ جميع التغييرات", type='primary'):
-            st.session_state.df = edited
-            st.success(f"🎯 {feth.respond('celebration')}")
-            st.balloons()
-    
-    else:
-        st.error(f"🎯 {feth.respond('support').replace('ولا يهمك... خلينا نمشي خطوة خطوة 🤝', 'محتاج بيانات الأول')} ❌")
-
-# --- Power BI ---
-elif page == 'powerbi':
-    st.header("📈 Power BI | FETH")
-    
-    if df is not None:
-        numeric_cols = df.select_dtypes(include=[np.number]).columns
-        
-        if len(numeric_cols) > 0:
-            st.info(f"🎯 {feth.respond('analysis_ready')}")
-            
-            kpi = st.selectbox("اختر المؤشر:", numeric_cols)
-            
-            cols = st.columns(4)
-            total_val = df[kpi].sum()
-            avg_val = df[kpi].mean()
-            max_val = df[kpi].max()
-            
-            cols[0].metric("الإجمالي", f"{total_val:,.0f}")
-            cols[1].metric("المتوسط", f"{avg_val:,.0f}")
-            cols[2].metric("الأعلى", f"{max_val:,.0f}")
-            cols[3].metric("العدد", len(df))
-            
-            # FETH يعلق
-            if total_val > df[kpi].mean() * len(df) * 0.5:
-                st.success(f"🎯 {feth.respond('insight_high', f'أداء قوي في {kpi}')}")
-            
-            cat_cols = df.select_dtypes(include=['object']).columns
-            if len(cat_cols) > 0:
-                cat = st.selectbox("التصنيف:", cat_cols)
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    fig = px.pie(df, values=kpi, names=cat, title=f"توزيع {kpi}")
-                    st.plotly_chart(fig, use_container_width=True)
-                with col2:
-                    fig2 = px.bar(df.groupby(cat)[kpi].sum().reset_index(), x=cat, y=kpi, title=f"مجموع {kpi}")
-                    st.plotly_chart(fig2, use_container_width=True)
-    else:
-        st.error(f"🎯 {feth.respond('support').replace('ولا يهمك... خلينا نمشي خطوة خطوة 🤝', 'محتاج بيانات الأول')} ❌")
-
-# --- SQL ---
-elif page == 'sql':
-    st.header("🗄️ SQL | FETH")
-    
-    if df is not None:
-        st.info(f"🎯 {feth.respond('teaching')}")
-        
-        query = st.text_area("اكتب استعلام SQL:", "SELECT * FROM data LIMIT 10")
-        
-        if st.button("▶️ تشغيل"):
-            st.warning("🎯 FETH: مكتبة DuckDB غير مثبتة في السحابة حالياً")
-    else:
-        st.error(f"🎯 {feth.respond('support').replace('ولا يهمك... خلينا نمشي خطوة خطوة 🤝', 'محتاج بيانات الأول')} ❌")
-
-# --- FETH AI Assistant ---
-elif page == 'ai':
-    st.header("🎯 FETH | المحلل الذكي")
-    
-    if df is not None:
-        st.success(f"🎯 {feth.respond('analysis_ready')}")
-        
-        with st.expander("👁️ FETH شايف إيه؟"):
-            st.dataframe(df.head(), use_container_width=True)
-            st.write(f"📊 FETH يحلل {len(df):,} صف و {len(df.columns)} عمود")
-        
-        st.write("---")
-        st.subheader("💬 اسأل FETH")
-        
-        examples = [
-            "افتحلي المبيعات وقوللي إجماليها؟",
-            "شايف إيه أعلى منتج مبيعاً؟",
-            "فتحلي البيانات وقوللي ملخصها؟",
-            "إيه الاتجاهات اللي لاحظتها؟",
-            "قارنلي النتائج بالمتوسط"
-        ]
-        
-        col1, col2 = st.columns([3, 1])
-        
-        with col1:
-            question = st.text_input("📝 سؤالك لـ FETH:", 
-                                   placeholder="مثال: افتحلي المبيعات...")
-        
-        with col2:
-            st.write("")
-            st.write("")
-            ask_btn = st.button("🎯 اسأل FETH", type='primary')
-        
-        # أمثلة سريعة
-        st.write("*FETH يقترح تسأل:*")
-        ex_cols = st.columns(len(examples))
-        for i, ex in enumerate(examples):
-            with ex_cols[i]:
-                if st.button(ex, key=f'feth_ex_{i}'):
-                    st.session_state.last_question = ex
-                    st.rerun()
-        
-        # الرد
-        if ask_btn and question:
-            with st.spinner("🎯 FETH بيفتح البيانات..."):
-                answer = ai_assistant(df, question)
-                st.success(answer)
-                
-                # FETH يقترح بعد الرد
-                st.write("---")
-                st.markdown(f"### 💡 {feth.respond('teaching').replace('خليني أفتحلك النقطة دي ببساطة...', 'تعمل إيه بعد كده؟')}")
-                more = feth.suggest_next('ai')
-                for m in more[:2]:
-                    if st.button(m, key=f"feth_more_{m}"):
-                        if "بصري" in m:
-                            st.session_state.page = 'powerbi'
-                        elif "PDF" in m:
-                            st.session_state.page = 'export'
-                        elif "نظف" in m:
-                            st.session_state.page = 'cleaner'
-                        st.rerun()
-        
-        # سجل المحادثة
-        if 'last_question' in st.session_state:
-            if 'chat_history' not in st.session_state:
-                st.session_state.chat_history = []
-            st.session_state.chat_history.append({
-                'question': st.session_state.last_question,
-                'time': datetime.now().strftime("%H:%M")
-            })
-            
-            if st.session_state.chat_history:
-                with st.expander("📜 سجل الأسئلة"):
-                    for item in reversed(st.session_state.chat_history[-5:]):
-                        st.write(f"🕐 {item['time']} - {item['question']}")
-    
-    else:
-        st.error(f"🎯 {feth.respond('support').replace('ولا يهمك... خلينا نمشي خطوة خطوة 🤝', 'محتاج بيانات الأول! ارفع ملف')} ❌")
-
-# --- تصدير ومشاركة ---
-elif page == 'export':
-    st.header("💾 " + t('export') + " | FETH")
-    
-    if df is not None:
-        st.info(f"🎯 {feth.respond('analysis_ready')}")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            csv = df.to_csv(index=False)
-            b64 = base64.b64encode(csv.encode()).decode()
-            st.markdown(f'<a href="data:file/csv;base64,{b64}" download="data.csv"><button style="width:100%; padding:10px; background:#3498DB; color:white; border:none; border-radius:5px;">📥 CSV</button></a>', unsafe_allow_html=True)
-        
-        with col2:
-            output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                df.to_excel(writer, sheet_name='Data', index=False)
-            b64 = base64.b64encode(output.getvalue()).decode()
-            st.markdown(f'<a href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}" download="data.xlsx"><button style="width:100%; padding:10px; background:#2C3E50; color:white; border:none; border-radius:5px;">📥 Excel</button></a>', unsafe_allow_html=True)
-        
-        with col3:
-            json_str = df.to_json(orient='records', force_ascii=False)
-            st.download_button("📥 JSON", json_str, "data.json", "application/json")
-        
-        # PDF
-        st.write("---")
-        st.subheader("📤 تقرير PDF | FETH")
-        
-        if st.button("📄 توليد PDF", type='primary'):
-            with st.spinner("🎯 FETH بيعمل التقرير..."):
-                try:
-                    pdf_bytes = generate_pdf_report(df)
-                    st.session_state.pdf_report = pdf_bytes
-                    st.success(f"🎯 {feth.respond('celebration')}")
-                except Exception as e:
-                    st.error(f"🎯 {feth.respond('error')}: {str(e)}")
-        
-        if 'pdf_report' in st.session_state:
-            b64 = base64.b64encode(st.session_state.pdf_report).decode()
-            st.markdown(f'<a href="data:application/pdf;base64,{b64}" download="feth_report.pdf"><button style="width:100%; padding:10px; background:#e74c3c; color:white; border:none; border-radius:5px;">📥 تحميل تقرير FETH</button></a>', unsafe_allow_html=True)
-    
-    else:
-        st.error(f"🎯 {feth.respond('support').replace('ولا يهمك... خلينا نمشي خطوة خطوة 🤝', 'محتاج بيانات الأول')} ❌")
-
-# ======== Footer ========
-st.write("---")
-st.markdown(f"<p style='text-align:center; color:#3498DB; font-size:16px;'>"
-            f"🎯 FETH | بيفتح البيانات</p>", 
-            unsafe_allow_html=True)
-st.markdown(f"<p style='text-align:center; color:gray; font-size:12px;'>"
-            f"🔥 MIA8444 | Data Beast Pro © 2024</p>", 
-            unsafe_allow_html=True)
+    df = st.session_st
