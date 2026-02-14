@@ -14,7 +14,7 @@ warnings.filterwarnings('ignore')
 AUTHOR_SIGNATURE = "MIA8444"
 APP_NAME = "Smart Analyst The Beast"
 APP_VERSION = "5.0.0"
-LOGO_FILE = "8888.jpg"
+LOGO_FILE = "logo.jpg"
 
 st.set_page_config(
     page_title=f"{AUTHOR_SIGNATURE} | {APP_NAME}",
